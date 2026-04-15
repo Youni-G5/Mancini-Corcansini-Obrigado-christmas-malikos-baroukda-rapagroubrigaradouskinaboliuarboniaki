@@ -1,0 +1,37 @@
+{
+  "general": {
+    "continue_shopping": "Continuer les achats",
+    "search": {
+      "placeholder": "Rechercher",
+      "search": "Rechercher"
+    },
+    "pagination": {
+      "previous": "Précédent",
+      "next": "Suivant"
+    }
+  },
+  "products": {
+    "product": {
+      "add_to_cart": "Ajouter au panier"
+    }
+  },
+  "sections": {
+    "cart": {
+      "title": "Votre panier",
+      "empty": "Votre panier est vide",
+      "checkout": "Passer la commande"
+    },
+    "collection_template": {
+      "empty": "Aucun produit trouvé"
+    }
+  },
+  "templates": {
+    "search": {
+      "title": "Recherche"
+    }
+  },
+  "404": {
+    "title": "Page introuvable",
+    "subtext": "La page que vous recherchez n'existe pas."
+  }
+}

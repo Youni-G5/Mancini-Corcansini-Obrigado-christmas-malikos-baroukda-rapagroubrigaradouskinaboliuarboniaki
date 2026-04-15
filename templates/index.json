@@ -1,0 +1,9 @@
+{
+  "sections": {
+    "announcement": { "type": "announcement-bar" },
+    "image_banner": { "type": "image-banner" },
+    "featured_collection": { "type": "featured-collection" },
+    "rich_text": { "type": "rich-text" }
+  },
+  "order": ["announcement", "image_banner", "featured_collection", "rich_text"]
+}

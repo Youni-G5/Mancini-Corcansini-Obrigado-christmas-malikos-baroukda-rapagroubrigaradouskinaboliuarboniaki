@@ -1,0 +1,18 @@
+<section class="main-blog">
+  <div class="container">
+    <h1>{{ blog.title }}</h1>
+    {%- for article in blog.articles -%}
+      <article>
+        <h2><a href="{{ article.url }}">{{ article.title }}</a></h2>
+        <p>{{ article.excerpt_or_content | strip_html | truncatewords: 30 }}</p>
+      </article>
+    {%- endfor -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Blog",
+  "settings": []
+}
+{% endschema %}

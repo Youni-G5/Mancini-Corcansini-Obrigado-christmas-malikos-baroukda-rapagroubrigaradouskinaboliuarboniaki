@@ -1,0 +1,24 @@
+<section class="main-product" id="ProductInfo-{{ section.id }}">
+  <div class="container">
+    <div class="product__media">
+      {%- for media in product.media -%}
+        {{ media | image_url: width: 1000 | image_tag: loading: 'lazy' }}
+      {%- endfor -%}
+    </div>
+    <div class="product__info">
+      <h1>{{ product.title }}</h1>
+      <p class="product__price">{{ product.selected_or_first_available_variant.price | money }}</p>
+      {%- form 'product', product, id: 'product-form' -%}
+        <input type="hidden" name="id" value="{{ product.selected_or_first_available_variant.id }}">
+        <button type="submit" class="btn btn-primary">{{ 'products.product.add_to_cart' | t }}</button>
+      {%- endform -%}
+    </div>
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Product",
+  "settings": []
+}
+{% endschema %}

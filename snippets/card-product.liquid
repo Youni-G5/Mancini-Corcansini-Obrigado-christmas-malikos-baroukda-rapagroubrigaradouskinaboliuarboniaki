@@ -1,0 +1,21 @@
+{%- if card_product != blank -%}
+  <div class="card-product">
+    {%- if card_product.featured_media -%}
+      <a href="{{ card_product.url }}" class="card-product__media">
+        {{ card_product.featured_media | image_url: width: 500 | image_tag:
+          loading: 'lazy',
+          widths: '165, 360, 533, 720, 940, 1066',
+          alt: card_product.featured_media.alt | escape
+        }}
+      </a>
+    {%- endif -%}
+    <div class="card-product__info">
+      <h3 class="card-product__title">
+        <a href="{{ card_product.url }}">{{ card_product.title | escape }}</a>
+      </h3>
+      <p class="card-product__price">
+        {{ card_product.price | money }}
+      </p>
+    </div>
+  </div>
+{%- endif -%}

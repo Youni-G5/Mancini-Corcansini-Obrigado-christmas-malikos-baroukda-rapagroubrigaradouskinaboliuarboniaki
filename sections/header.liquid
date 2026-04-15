@@ -1,0 +1,33 @@
+{% comment %} Header section {% endcomment %}
+<header class="site-header">
+  <div class="container">
+    <a href="{{ routes.root_url }}" class="site-header__logo">
+      {%- if section.settings.logo != blank -%}
+        {{ section.settings.logo | image_url: width: 300 | image_tag: loading: 'eager', fetchpriority: 'high' }}
+      {%- else -%}
+        {{ shop.name }}
+      {%- endif -%}
+    </a>
+    {% render 'navigation', menu: section.settings.menu %}
+  </div>
+</header>
+
+{% schema %}
+{
+  "name": "Header",
+  "class": "section-header",
+  "settings": [
+    {
+      "type": "image_picker",
+      "id": "logo",
+      "label": "Logo"
+    },
+    {
+      "type": "link_list",
+      "id": "menu",
+      "default": "main-menu",
+      "label": "Menu"
+    }
+  ]
+}
+{% endschema %}

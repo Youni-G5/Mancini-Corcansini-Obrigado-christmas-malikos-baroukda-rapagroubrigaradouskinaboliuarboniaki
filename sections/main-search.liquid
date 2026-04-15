@@ -1,0 +1,24 @@
+<section class="main-search">
+  <div class="container">
+    <h1>{{ 'templates.search.title' | t }}</h1>
+    <form action="{{ routes.search_url }}" method="get">
+      <input type="hidden" name="type" value="product">
+      <input type="search" name="q" value="{{ search.terms | escape }}" placeholder="{{ 'general.search.placeholder' | t }}">
+      <button type="submit">{{ 'general.search.search' | t }}</button>
+    </form>
+    {%- if search.performed -%}
+      <ul class="product-grid" role="list">
+        {%- for item in search.results -%}
+          <li>{% render 'card-product', card_product: item %}</li>
+        {%- endfor -%}
+      </ul>
+    {%- endif -%}
+  </div>
+</section>
+
+{% schema %}
+{
+  "name": "Search",
+  "settings": []
+}
+{% endschema %}

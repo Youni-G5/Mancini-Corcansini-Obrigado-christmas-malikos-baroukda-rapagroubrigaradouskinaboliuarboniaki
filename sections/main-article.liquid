@@ -1,0 +1,14 @@
+<article class="main-article">
+  <div class="container">
+    <h1>{{ article.title }}</h1>
+    <p>{{ article.published_at | date: '%B %d, %Y' }}</p>
+    <div class="rte">{{ article.content }}</div>
+  </div>
+</article>
+
+{% schema %}
+{
+  "name": "Article",
+  "settings": []
+}
+{% endschema %}
