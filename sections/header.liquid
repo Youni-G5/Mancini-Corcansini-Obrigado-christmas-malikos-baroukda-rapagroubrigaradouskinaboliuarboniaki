@@ -1,7 +1,7 @@
 {% comment %}
   L'AVANT-GARDE — Header Section v2 (Shopify 2.0)
   Corrections v2 :
-    - Layout flex sans position:absolute sur le logo → zéro décalage garanti
+    - Layout grid 3 colonnes sans position:absolute → zéro décalage garanti
     - --header-height CSS custom property exposée pour toutes les sections suivantes
     - Z-index system centralisé (announcement 40 / nav 50 / overlays 100-200)
     - scroll-padding-top automatique via CSS var
@@ -10,6 +10,9 @@
     - Accessibilité : focus trap, aria-live, escape, skip link
     - Mobile-first : breakpoints propres, touch targets 44px min
     - Aucun inline style, tout via CSS custom properties
+  Fix v2.1 :
+    - Correction syntaxe Liquid image_tag : alt isolé avec capture pour éviter
+      l'ambiguïté du pipe | escape dans les paramètres nommés
 {% endcomment %}
 
 {%- liquid
@@ -112,7 +115,6 @@
     text-align: center;
     padding: 0 16px;
     white-space: nowrap;
-    overflow: hidden;
     text-overflow: ellipsis;
   }
 
@@ -1064,12 +1066,18 @@
       <p class="avant-garde-cart__empty">{{ 'sections.cart.empty' | t }}</p>
     {%- else -%}
       {%- for item in cart.items -%}
+        {%- liquid
+          assign item_alt = item.title | escape
+        -%}
         <div class="avant-garde-cart__item">
           <a href="{{ item.url }}" tabindex="-1" aria-hidden="true">
             {%- if item.image -%}
               {{ item.image
                 | image_url: width: 144
-                | image_tag: loading: 'lazy', alt: item.title | escape, class: 'avant-garde-cart__item-img'
+                | image_tag:
+                  loading: 'lazy',
+                  alt: item_alt,
+                  class: 'avant-garde-cart__item-img'
               }}
             {%- else -%}
               <div class="avant-garde-cart__item-img"></div>
@@ -1099,10 +1107,13 @@
               >+</button>
             </div>
           </div>
+          {%- liquid
+            assign remove_label = 'Retirer ' | append: item.title | escape | append: ' du panier'
+          -%}
           <button
             class="avant-garde-cart__item-remove"
             type="button"
-            aria-label="Retirer {{ item.title | escape }} du panier"
+            aria-label="{{ remove_label }}"
             data-key="{{ item.key }}"
             onclick="AG.removeItem(this)"
           >
@@ -1242,7 +1253,6 @@ window.AG = (function () {
   // ── body lock ────────────────────────────────────────────
   function lockBody() {
     document.body.style.overflow = 'hidden';
-    // Compense la scrollbar pour éviter le layout shift
     var w = window.innerWidth - document.documentElement.clientWidth;
     if (w > 0) document.body.style.paddingRight = w + 'px';
   }
@@ -1291,7 +1301,6 @@ window.AG = (function () {
   function _openCart(btn) {
     _cartOpen = true;
     open(cart, btn);
-    // Rafraîchit depuis Shopify AJAX
     if (!_loading) _fetchCart();
   }
 
@@ -1322,7 +1331,6 @@ window.AG = (function () {
   }
 
   function _renderCart(data) {
-    // Badge
     var count = data.item_count || 0;
     badge.textContent = count;
     badge.setAttribute('data-count', count);
@@ -1331,7 +1339,6 @@ window.AG = (function () {
       count + ' article' + (count !== 1 ? 's' : '') + ' dans le panier'
     );
 
-    // Checkout button
     var checkoutEl = cartFoot.querySelector('.avant-garde-cart__checkout');
 
     if (count === 0) {
@@ -1384,7 +1391,6 @@ window.AG = (function () {
   function updateQty(btn) {
     var key    = btn.getAttribute('data-key');
     var action = btn.getAttribute('data-action');
-    // Trouve la quantité actuelle depuis le span adjacent
     var span   = btn.parentElement.querySelector('span');
     var qty    = parseInt(span.textContent, 10) || 0;
     var newQty = action === 'increase' ? qty + 1 : Math.max(0, qty - 1);
@@ -1405,7 +1411,6 @@ window.AG = (function () {
       _renderCart(data);
       _loading = false;
       cart.classList.remove('is-loading');
-      // Dispatch event pour les autres sections (ex: mini-cart flottant)
       document.dispatchEvent(new CustomEvent('ag:cart:update', { detail: data }));
     })
     .catch(function () {
@@ -1471,7 +1476,7 @@ window.AG = (function () {
     closeAll:     closeAll,
     removeItem:   removeItem,
     updateQty:    updateQty,
-    fetchCart:    _fetchCart   // exposé pour les sections add-to-cart
+    fetchCart:    _fetchCart
   };
 
 }());
