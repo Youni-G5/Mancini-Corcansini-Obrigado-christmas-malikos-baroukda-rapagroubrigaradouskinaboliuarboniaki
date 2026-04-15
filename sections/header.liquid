@@ -1,32 +1,1044 @@
-{% comment %} Header section {% endcomment %}
-<header class="site-header">
-  <div class="container">
-    <a href="{{ routes.root_url }}" class="site-header__logo">
-      {%- if section.settings.logo != blank -%}
-        {{ section.settings.logo | image_url: width: 300 | image_tag: loading: 'eager', fetchpriority: 'high' }}
-      {%- else -%}
-        {{ shop.name }}
-      {%- endif -%}
-    </a>
-    {% render 'navigation', menu: section.settings.menu %}
+{% comment %}
+  L'AVANT-GARDE — Header Section (Shopify 2.0)
+  Features:
+    - Barre d'annonce configurable
+    - Navigation sticky avec backdrop-blur
+    - Logo centré (image ou texte Playfair Display)
+    - Liens de navigation gauche/droite
+    - Icônes : recherche, panier (AJAX), menu mobile
+    - Cart drawer AJAX natif Shopify
+    - Entièrement modifiable via le Customizer
+{% endcomment %}
+
+{%- liquid
+  assign menu = section.settings.menu
+  assign show_announcement = section.settings.show_announcement
+  assign announcement_text = section.settings.announcement_text
+  assign logo = section.settings.logo
+  assign logo_width = section.settings.logo_width
+  assign brand_name = section.settings.brand_name | default: shop.name
+-%}
+
+{%- style -%}
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap');
+
+  :root {
+    --header-bg: {{ section.settings.nav_bg_color }};
+    --header-text: {{ section.settings.nav_text_color }};
+    --announcement-bg: {{ section.settings.announcement_bg_color }};
+    --announcement-text: {{ section.settings.announcement_text_color }};
+  }
+
+  .avant-garde-announcement {
+    background-color: var(--announcement-bg);
+    color: var(--announcement-text);
+    font-size: 10px;
+    text-transform: uppercase;
+    letter-spacing: 0.3em;
+    padding: 10px 0;
+    text-align: center;
+    font-weight: 600;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .avant-garde-nav {
+    position: sticky;
+    top: 0;
+    width: 100%;
+    z-index: 50;
+    background-color: var(--header-bg);
+    backdrop-filter: blur(12px);
+    -webkit-backdrop-filter: blur(12px);
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+    padding: 20px 48px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: padding 0.3s ease, box-shadow 0.3s ease;
+    color: var(--header-text);
+    font-family: 'Inter', sans-serif;
+  }
+
+  .avant-garde-nav.scrolled {
+    padding-top: 12px;
+    padding-bottom: 12px;
+    box-shadow: 0 1px 12px rgba(0,0,0,0.06);
+  }
+
+  /* Liens gauche */
+  .avant-garde-nav__links {
+    display: flex;
+    gap: 32px;
+    align-items: center;
+  }
+
+  .avant-garde-nav__links a,
+  .avant-garde-nav__links summary {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--header-text);
+    text-decoration: none;
+    transition: opacity 0.2s;
+    cursor: pointer;
+    list-style: none;
+    background: none;
+    border: none;
+    padding: 0;
+  }
+
+  .avant-garde-nav__links a:hover,
+  .avant-garde-nav__links summary:hover {
+    opacity: 0.5;
+  }
+
+  /* Dropdown mega menu */
+  details.avant-garde-dropdown {
+    position: relative;
+  }
+
+  details.avant-garde-dropdown[open] > summary::after {
+    content: '';
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+  }
+
+  .avant-garde-dropdown__menu {
+    position: absolute;
+    top: calc(100% + 16px);
+    left: 0;
+    background: #fff;
+    border: 1px solid rgba(0,0,0,0.08);
+    min-width: 180px;
+    padding: 16px 0;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+    z-index: 100;
+  }
+
+  .avant-garde-dropdown__menu a {
+    display: block;
+    padding: 8px 24px;
+    font-size: 11px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
+    color: #0f0f0f;
+    text-decoration: none;
+    transition: background 0.15s;
+  }
+
+  .avant-garde-dropdown__menu a:hover {
+    background: #f5f5f7;
+    opacity: 1;
+  }
+
+  /* Logo centré */
+  .avant-garde-nav__logo {
+    position: absolute;
+    left: 50%;
+    transform: translateX(-50%);
+    text-decoration: none;
+    color: var(--header-text);
+  }
+
+  .avant-garde-nav__logo-text {
+    font-family: 'Playfair Display', serif;
+    font-size: clamp(1.25rem, 2vw, 1.75rem);
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    white-space: nowrap;
+  }
+
+  .avant-garde-nav__logo img {
+    display: block;
+    height: auto;
+    max-width: {{ logo_width }}px;
+  }
+
+  /* Icônes droite */
+  .avant-garde-nav__icons {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    margin-left: auto;
+  }
+
+  .avant-garde-nav__icon-btn {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    color: var(--header-text);
+    transition: opacity 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    position: relative;
+  }
+
+  .avant-garde-nav__icon-btn:hover { opacity: 0.5; }
+
+  .avant-garde-nav__icon-btn svg {
+    width: 20px;
+    height: 20px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .avant-garde-cart-badge {
+    position: absolute;
+    top: -6px;
+    right: -6px;
+    background: var(--header-text);
+    color: var(--header-bg);
+    font-size: 8px;
+    width: 16px;
+    height: 16px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    line-height: 1;
+  }
+
+  /* Burger mobile */
+  .avant-garde-nav__burger {
+    display: none;
+  }
+
+  /* --- CART DRAWER --- */
+  .avant-garde-cart-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.4);
+    z-index: 100;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.3s, visibility 0.3s;
+  }
+
+  .avant-garde-cart-overlay.open {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .avant-garde-cart-drawer {
+    position: fixed;
+    right: 0;
+    top: 0;
+    height: 100%;
+    width: 100%;
+    max-width: 420px;
+    background: #fff;
+    z-index: 101;
+    transform: translateX(100%);
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    padding: 32px;
+    box-shadow: -4px 0 40px rgba(0,0,0,0.1);
+    font-family: 'Inter', sans-serif;
+  }
+
+  .avant-garde-cart-drawer.open {
+    transform: translateX(0);
+  }
+
+  .avant-garde-cart-drawer__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 32px;
+  }
+
+  .avant-garde-cart-drawer__title {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.5rem;
+    font-style: italic;
+    color: #0f0f0f;
+  }
+
+  .avant-garde-cart-drawer__close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 8px;
+    color: #0f0f0f;
+    transition: opacity 0.2s;
+  }
+
+  .avant-garde-cart-drawer__close:hover { opacity: 0.5; }
+
+  .avant-garde-cart-drawer__close svg {
+    width: 24px;
+    height: 24px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .avant-garde-cart-drawer__body {
+    flex-grow: 1;
+    overflow-y: auto;
+  }
+
+  .avant-garde-cart-drawer__empty {
+    text-align: center;
+    color: #999;
+    margin-top: 48px;
+    font-size: 0.875rem;
+  }
+
+  .avant-garde-cart-item {
+    display: flex;
+    gap: 16px;
+    align-items: flex-start;
+    padding: 16px 0;
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .avant-garde-cart-item img {
+    width: 72px;
+    height: 88px;
+    object-fit: cover;
+    border-radius: 2px;
+    flex-shrink: 0;
+  }
+
+  .avant-garde-cart-item__info {
+    flex-grow: 1;
+  }
+
+  .avant-garde-cart-item__title {
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+    color: #0f0f0f;
+    margin-bottom: 4px;
+  }
+
+  .avant-garde-cart-item__variant {
+    font-size: 11px;
+    color: #999;
+    font-style: italic;
+  }
+
+  .avant-garde-cart-item__price {
+    font-size: 0.875rem;
+    margin-top: 8px;
+    color: #0f0f0f;
+  }
+
+  .avant-garde-cart-item__remove {
+    background: none;
+    border: none;
+    cursor: pointer;
+    padding: 4px;
+    color: #999;
+    transition: color 0.2s;
+    flex-shrink: 0;
+  }
+
+  .avant-garde-cart-item__remove:hover { color: #e53935; }
+
+  .avant-garde-cart-item__remove svg {
+    width: 16px;
+    height: 16px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .avant-garde-cart-drawer__footer {
+    border-top: 1px solid #f0f0f0;
+    padding-top: 24px;
+    margin-top: 24px;
+  }
+
+  .avant-garde-cart-drawer__total {
+    display: flex;
+    justify-content: space-between;
+    font-weight: 700;
+    font-size: 1rem;
+    margin-bottom: 24px;
+    color: #0f0f0f;
+  }
+
+  .avant-garde-cart-drawer__checkout {
+    display: block;
+    width: 100%;
+    background: #0f0f0f;
+    color: #fff;
+    border: none;
+    padding: 18px;
+    border-radius: 9999px;
+    font-size: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.2em;
+    cursor: pointer;
+    text-align: center;
+    text-decoration: none;
+    transition: background 0.2s;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .avant-garde-cart-drawer__checkout:hover { background: #333; }
+
+  /* --- SEARCH OVERLAY --- */
+  .avant-garde-search-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(255,255,255,0.97);
+    z-index: 200;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding-top: 120px;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.25s, visibility 0.25s;
+  }
+
+  .avant-garde-search-overlay.open {
+    opacity: 1;
+    visibility: visible;
+  }
+
+  .avant-garde-search-overlay__inner {
+    width: 100%;
+    max-width: 640px;
+    padding: 0 24px;
+  }
+
+  .avant-garde-search-overlay__form {
+    display: flex;
+    align-items: center;
+    border-bottom: 2px solid #0f0f0f;
+    padding-bottom: 12px;
+    gap: 16px;
+  }
+
+  .avant-garde-search-overlay__input {
+    flex-grow: 1;
+    border: none;
+    background: transparent;
+    font-size: 1.5rem;
+    font-family: 'Playfair Display', serif;
+    font-style: italic;
+    color: #0f0f0f;
+    outline: none;
+  }
+
+  .avant-garde-search-overlay__input::placeholder {
+    color: #ccc;
+  }
+
+  .avant-garde-search-overlay__submit {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #0f0f0f;
+    transition: opacity 0.2s;
+  }
+
+  .avant-garde-search-overlay__submit:hover { opacity: 0.5; }
+
+  .avant-garde-search-overlay__submit svg {
+    width: 24px;
+    height: 24px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .avant-garde-search-overlay__close {
+    position: absolute;
+    top: 32px;
+    right: 48px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #0f0f0f;
+    transition: opacity 0.2s;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .avant-garde-search-overlay__close:hover { opacity: 0.5; }
+
+  /* --- MOBILE MENU --- */
+  .avant-garde-mobile-menu {
+    position: fixed;
+    inset: 0;
+    background: #fff;
+    z-index: 150;
+    transform: translateX(-100%);
+    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    padding: 32px 40px;
+    font-family: 'Inter', sans-serif;
+  }
+
+  .avant-garde-mobile-menu.open {
+    transform: translateX(0);
+  }
+
+  .avant-garde-mobile-menu__header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 48px;
+  }
+
+  .avant-garde-mobile-menu__logo {
+    font-family: 'Playfair Display', serif;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #0f0f0f;
+    text-decoration: none;
+  }
+
+  .avant-garde-mobile-menu__close {
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #0f0f0f;
+    padding: 8px;
+  }
+
+  .avant-garde-mobile-menu__close svg {
+    width: 28px;
+    height: 28px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+  }
+
+  .avant-garde-mobile-menu__nav {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+  }
+
+  .avant-garde-mobile-menu__nav li {
+    border-bottom: 1px solid #f0f0f0;
+  }
+
+  .avant-garde-mobile-menu__nav a {
+    display: block;
+    padding: 20px 0;
+    font-size: 13px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #0f0f0f;
+    text-decoration: none;
+    transition: opacity 0.2s;
+  }
+
+  .avant-garde-mobile-menu__nav a:hover { opacity: 0.5; }
+
+  /* --- RESPONSIVE --- */
+  @media (max-width: 1024px) {
+    .avant-garde-nav {
+      padding-left: 24px;
+      padding-right: 24px;
+    }
+
+    .avant-garde-nav__links {
+      display: none;
+    }
+
+    .avant-garde-nav__burger {
+      display: flex;
+    }
+  }
+
+  @media (max-width: 768px) {
+    .avant-garde-nav {
+      padding: 16px 20px;
+    }
+  }
+{%- endstyle -%}
+
+{%- if show_announcement and announcement_text != blank -%}
+  <div class="avant-garde-announcement" role="region" aria-label="Annonce">
+    {{- announcement_text -}}
   </div>
-</header>
+{%- endif -%}
+
+<nav class="avant-garde-nav" id="AvantGardeNav" role="navigation" aria-label="Navigation principale">
+
+  {%- comment -%} LIENS GAUCHE {%- endcomment -%}
+  <div class="avant-garde-nav__links" aria-label="Liens principaux gauche">
+    {%- for link in menu.links limit: 3 -%}
+      {%- if link.links.size > 0 -%}
+        <details class="avant-garde-dropdown">
+          <summary aria-haspopup="true">{{ link.title }}</summary>
+          <div class="avant-garde-dropdown__menu" role="menu">
+            {%- for child in link.links -%}
+              <a href="{{ child.url }}" role="menuitem">{{ child.title }}</a>
+            {%- endfor -%}
+          </div>
+        </details>
+      {%- else -%}
+        <a href="{{ link.url }}"
+          {%- if link.current %} aria-current="page"{% endif %}>
+          {{ link.title }}
+        </a>
+      {%- endif -%}
+    {%- endfor -%}
+  </div>
+
+  {%- comment -%} LOGO CENTRÉ {%- endcomment -%}
+  <a href="{{ routes.root_url }}" class="avant-garde-nav__logo" aria-label="{{ brand_name }} — Accueil">
+    {%- if logo != blank -%}
+      {{ logo | image_url: width: logo_width | image_tag:
+        loading: 'eager',
+        fetchpriority: 'high',
+        alt: brand_name
+      }}
+    {%- else -%}
+      <span class="avant-garde-nav__logo-text">{{ brand_name }}</span>
+    {%- endif -%}
+  </a>
+
+  {%- comment -%} ICÔNES DROITE {%- endcomment -%}
+  <div class="avant-garde-nav__icons">
+
+    {%- comment -%} Bouton Recherche {%- endcomment -%}
+    <button
+      class="avant-garde-nav__icon-btn"
+      aria-label="Ouvrir la recherche"
+      onclick="avantGardeToggleSearch()"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    </button>
+
+    {%- comment -%} Bouton Compte {%- endcomment -%}
+    {%- if section.settings.show_account -%}
+      <a
+        href="{%- if customer -%}{{ routes.account_url }}{%- else -%}{{ routes.account_login_url }}{%- endif -%}"
+        class="avant-garde-nav__icon-btn"
+        aria-label="Mon compte"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </a>
+    {%- endif -%}
+
+    {%- comment -%} Bouton Panier {%- endcomment -%}
+    <button
+      class="avant-garde-nav__icon-btn"
+      aria-label="Ouvrir le panier — {{ cart.item_count }} article{{ cart.item_count | plural: '', 's' }}"
+      onclick="avantGardeToggleCart()"
+      id="AvantGardeCartBtn"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
+      <span class="avant-garde-cart-badge" id="AvantGardeCartCount" aria-live="polite" aria-atomic="true">
+        {{ cart.item_count }}
+      </span>
+    </button>
+
+    {%- comment -%} Burger mobile {%- endcomment -%}
+    <button
+      class="avant-garde-nav__icon-btn avant-garde-nav__burger"
+      aria-label="Ouvrir le menu"
+      aria-expanded="false"
+      aria-controls="AvantGardeMobileMenu"
+      onclick="avantGardeToggleMobile(this)"
+    >
+      <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+    </button>
+
+  </div>
+</nav>
+
+{%- comment -%} ========== CART DRAWER ========== {%- endcomment -%}
+<div class="avant-garde-cart-overlay" id="AvantGardeCartOverlay" onclick="avantGardeToggleCart()" aria-hidden="true"></div>
+
+<div
+  id="AvantGardeCartDrawer"
+  class="avant-garde-cart-drawer"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Panier"
+  aria-hidden="true"
+>
+  <div class="avant-garde-cart-drawer__header">
+    <h2 class="avant-garde-cart-drawer__title">Votre Panier</h2>
+    <button class="avant-garde-cart-drawer__close" onclick="avantGardeToggleCart()" aria-label="Fermer le panier">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+
+  <div class="avant-garde-cart-drawer__body" id="AvantGardeCartBody">
+    {%- if cart.item_count == 0 -%}
+      <p class="avant-garde-cart-drawer__empty">{{ 'sections.cart.empty' | t }}</p>
+    {%- else -%}
+      {%- for item in cart.items -%}
+        <div class="avant-garde-cart-item" data-key="{{ item.key }}">
+          <a href="{{ item.url }}">
+            {%- if item.image -%}
+              {{ item.image | image_url: width: 144 | image_tag:
+                loading: 'lazy',
+                alt: item.title | escape
+              }}
+            {%- endif -%}
+          </a>
+          <div class="avant-garde-cart-item__info">
+            <p class="avant-garde-cart-item__title">{{ item.product.title }}</p>
+            {%- if item.variant.title != 'Default Title' -%}
+              <p class="avant-garde-cart-item__variant">{{ item.variant.title }}</p>
+            {%- endif -%}
+            <p class="avant-garde-cart-item__price">{{ item.final_line_price | money }}</p>
+          </div>
+          <button
+            class="avant-garde-cart-item__remove"
+            aria-label="Retirer {{ item.title | escape }} du panier"
+            data-key="{{ item.key }}"
+            onclick="avantGardeRemoveItem(this)"
+          >
+            <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+          </button>
+        </div>
+      {%- endfor -%}
+    {%- endif -%}
+  </div>
+
+  <div class="avant-garde-cart-drawer__footer" id="AvantGardeCartFooter">
+    <div class="avant-garde-cart-drawer__total">
+      <span>Total</span>
+      <span id="AvantGardeCartTotal">{{ cart.total_price | money }}</span>
+    </div>
+    <a href="{{ routes.checkout }}" class="avant-garde-cart-drawer__checkout">
+      {{ 'sections.cart.checkout' | t }}
+    </a>
+  </div>
+</div>
+
+{%- comment -%} ========== SEARCH OVERLAY ========== {%- endcomment -%}
+<div class="avant-garde-search-overlay" id="AvantGardeSearchOverlay" role="dialog" aria-modal="true" aria-label="Recherche" aria-hidden="true">
+  <div class="avant-garde-search-overlay__inner">
+    <form action="{{ routes.search_url }}" method="get" role="search" class="avant-garde-search-overlay__form">
+      <input type="hidden" name="type" value="product">
+      <input
+        type="search"
+        name="q"
+        class="avant-garde-search-overlay__input"
+        placeholder="Rechercher…"
+        autocomplete="off"
+        id="AvantGardeSearchInput"
+        aria-label="Recherche"
+      >
+      <button type="submit" class="avant-garde-search-overlay__submit" aria-label="Lancer la recherche">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+      </button>
+    </form>
+  </div>
+  <button class="avant-garde-search-overlay__close" onclick="avantGardeToggleSearch()" aria-label="Fermer la recherche">Fermer</button>
+</div>
+
+{%- comment -%} ========== MOBILE MENU ========== {%- endcomment -%}
+<div
+  id="AvantGardeMobileMenu"
+  class="avant-garde-mobile-menu"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Menu mobile"
+  aria-hidden="true"
+>
+  <div class="avant-garde-mobile-menu__header">
+    <a href="{{ routes.root_url }}" class="avant-garde-mobile-menu__logo">{{ brand_name }}</a>
+    <button class="avant-garde-mobile-menu__close" onclick="avantGardeToggleMobile()" aria-label="Fermer le menu">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+    </button>
+  </div>
+  <ul class="avant-garde-mobile-menu__nav" role="list">
+    {%- for link in menu.links -%}
+      <li>
+        <a href="{{ link.url }}"
+          {%- if link.current %} aria-current="page"{% endif %}>
+          {{ link.title }}
+        </a>
+      </li>
+    {%- endfor -%}
+  </ul>
+</div>
+
+<script>
+(function() {
+  // =====================
+  // SCROLL — Nav compacte
+  // =====================
+  var nav = document.getElementById('AvantGardeNav');
+  window.addEventListener('scroll', function() {
+    if (window.scrollY > 50) {
+      nav.classList.add('scrolled');
+    } else {
+      nav.classList.remove('scrolled');
+    }
+  }, { passive: true });
+
+  // =====================
+  // CART DRAWER
+  // =====================
+  window.avantGardeToggleCart = function() {
+    var drawer = document.getElementById('AvantGardeCartDrawer');
+    var overlay = document.getElementById('AvantGardeCartOverlay');
+    var isOpen = drawer.classList.contains('open');
+
+    if (isOpen) {
+      drawer.classList.remove('open');
+      drawer.setAttribute('aria-hidden', 'true');
+      overlay.classList.remove('open');
+      overlay.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+    } else {
+      // Rafraîchir le contenu via Shopify AJAX
+      fetch('/cart.js')
+        .then(function(r) { return r.json(); })
+        .then(function(cartData) {
+          avantGardeUpdateCartUI(cartData);
+          drawer.classList.add('open');
+          drawer.setAttribute('aria-hidden', 'false');
+          overlay.classList.add('open');
+          overlay.setAttribute('aria-hidden', 'false');
+          document.body.style.overflow = 'hidden';
+        });
+    }
+  };
+
+  // Mise à jour de l'UI du panier
+  function avantGardeUpdateCartUI(cartData) {
+    var body = document.getElementById('AvantGardeCartBody');
+    var total = document.getElementById('AvantGardeCartTotal');
+    var badge = document.getElementById('AvantGardeCartCount');
+
+    badge.textContent = cartData.item_count;
+
+    if (cartData.item_count === 0) {
+      body.innerHTML = '<p class="avant-garde-cart-drawer__empty">Votre panier est actuellement vide.</p>';
+      total.textContent = avantGardeFormatMoney(0);
+      return;
+    }
+
+    var html = '';
+    cartData.items.forEach(function(item) {
+      var variantTitle = item.variant_title && item.variant_title !== 'Default Title'
+        ? '<p class="avant-garde-cart-item__variant">' + item.variant_title + '</p>'
+        : '';
+      var img = item.image
+        ? '<img src="' + item.image + '" alt="' + item.title + '" loading="lazy">'
+        : '';
+      html += '<div class="avant-garde-cart-item" data-key="' + item.key + '">' +
+        '<a href="' + item.url + '">' + img + '</a>' +
+        '<div class="avant-garde-cart-item__info">' +
+          '<p class="avant-garde-cart-item__title">' + item.product_title + '</p>' +
+          variantTitle +
+          '<p class="avant-garde-cart-item__price">' + avantGardeFormatMoney(item.final_line_price) + '</p>' +
+        '</div>' +
+        '<button class="avant-garde-cart-item__remove" onclick="avantGardeRemoveItem(this)" data-key="' + item.key + '" aria-label="Retirer ' + item.title + '">' +
+          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>' +
+        '</button>' +
+      '</div>';
+    });
+
+    body.innerHTML = html;
+    total.textContent = avantGardeFormatMoney(cartData.total_price);
+  }
+
+  // Supprimer un article du panier (AJAX)
+  window.avantGardeRemoveItem = function(btn) {
+    var key = btn.getAttribute('data-key');
+    fetch('/cart/change.js', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ id: key, quantity: 0 })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(cartData) {
+      avantGardeUpdateCartUI(cartData);
+    });
+  };
+
+  // Format monnaie
+  function avantGardeFormatMoney(cents) {
+    return (cents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
+  }
+
+  // Écouter l'événement Shopify cart:refresh pour mettre à jour le badge
+  document.addEventListener('cart:refresh', function(e) {
+    var badge = document.getElementById('AvantGardeCartCount');
+    if (badge && e.detail && e.detail.item_count !== undefined) {
+      badge.textContent = e.detail.item_count;
+    }
+  });
+
+  // =====================
+  // SEARCH OVERLAY
+  // =====================
+  window.avantGardeToggleSearch = function() {
+    var overlay = document.getElementById('AvantGardeSearchOverlay');
+    var isOpen = overlay.classList.contains('open');
+    if (isOpen) {
+      overlay.classList.remove('open');
+      overlay.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+    } else {
+      overlay.classList.add('open');
+      overlay.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+      setTimeout(function() {
+        document.getElementById('AvantGardeSearchInput').focus();
+      }, 100);
+    }
+  };
+
+  // Fermer avec Escape
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape') {
+      document.getElementById('AvantGardeSearchOverlay').classList.remove('open');
+      document.getElementById('AvantGardeCartDrawer').classList.remove('open');
+      document.getElementById('AvantGardeCartOverlay').classList.remove('open');
+      document.getElementById('AvantGardeMobileMenu').classList.remove('open');
+      document.body.style.overflow = '';
+    }
+  });
+
+  // =====================
+  // MOBILE MENU
+  // =====================
+  window.avantGardeToggleMobile = function(btn) {
+    var menu = document.getElementById('AvantGardeMobileMenu');
+    var isOpen = menu.classList.contains('open');
+    if (isOpen) {
+      menu.classList.remove('open');
+      menu.setAttribute('aria-hidden', 'true');
+      document.body.style.overflow = '';
+      if (btn) btn.setAttribute('aria-expanded', 'false');
+    } else {
+      menu.classList.add('open');
+      menu.setAttribute('aria-hidden', 'false');
+      document.body.style.overflow = 'hidden';
+      if (btn) btn.setAttribute('aria-expanded', 'true');
+    }
+  };
+
+})();
+</script>
 
 {% schema %}
 {
   "name": "Header",
-  "class": "section-header",
+  "class": "avant-garde-header",
   "settings": [
+    {
+      "type": "header",
+      "content": "Logo"
+    },
     {
       "type": "image_picker",
       "id": "logo",
-      "label": "Logo"
+      "label": "Image du logo",
+      "info": "Laissez vide pour afficher le nom en texte (Playfair Display)"
+    },
+    {
+      "type": "range",
+      "id": "logo_width",
+      "min": 60,
+      "max": 400,
+      "step": 10,
+      "default": 180,
+      "unit": "px",
+      "label": "Largeur du logo"
+    },
+    {
+      "type": "text",
+      "id": "brand_name",
+      "label": "Nom de la marque (si pas de logo)",
+      "default": "L'AVANT-GARDE",
+      "info": "Affiché en Playfair Display si aucun logo n'est défini"
+    },
+    {
+      "type": "header",
+      "content": "Navigation"
     },
     {
       "type": "link_list",
       "id": "menu",
       "default": "main-menu",
-      "label": "Menu"
+      "label": "Menu principal"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_account",
+      "default": false,
+      "label": "Afficher l'icône compte client"
+    },
+    {
+      "type": "header",
+      "content": "Barre d'annonce"
+    },
+    {
+      "type": "checkbox",
+      "id": "show_announcement",
+      "default": true,
+      "label": "Afficher la barre d'annonce"
+    },
+    {
+      "type": "text",
+      "id": "announcement_text",
+      "label": "Texte de l'annonce",
+      "default": "Livraison offerte dès 150€ d'achat ● Retours gratuits sous 30 jours"
+    },
+    {
+      "type": "color",
+      "id": "announcement_bg_color",
+      "label": "Couleur de fond — annonce",
+      "default": "#0f0f0f"
+    },
+    {
+      "type": "color",
+      "id": "announcement_text_color",
+      "label": "Couleur du texte — annonce",
+      "default": "#ffffff"
+    },
+    {
+      "type": "header",
+      "content": "Couleurs de la navigation"
+    },
+    {
+      "type": "color",
+      "id": "nav_bg_color",
+      "label": "Couleur de fond — nav",
+      "default": "rgba(255,255,255,0.92)",
+      "info": "Utilisez rgba() pour l'effet glassmorphism"
+    },
+    {
+      "type": "color",
+      "id": "nav_text_color",
+      "label": "Couleur du texte — nav",
+      "default": "#0f0f0f"
     }
   ]
 }
