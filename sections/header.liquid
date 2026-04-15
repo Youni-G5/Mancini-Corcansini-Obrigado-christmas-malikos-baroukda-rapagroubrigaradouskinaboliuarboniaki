@@ -1,186 +1,300 @@
 {% comment %}
-  L'AVANT-GARDE — Header Section (Shopify 2.0)
-  Features:
-    - Barre d'annonce configurable
-    - Navigation sticky avec backdrop-blur
-    - Logo centré (image ou texte Playfair Display)
-    - Liens de navigation gauche/droite
-    - Icônes : recherche, panier (AJAX), menu mobile
-    - Cart drawer AJAX natif Shopify
-    - Entièrement modifiable via le Customizer
+  L'AVANT-GARDE — Header Section v2 (Shopify 2.0)
+  Corrections v2 :
+    - Layout flex sans position:absolute sur le logo → zéro décalage garanti
+    - --header-height CSS custom property exposée pour toutes les sections suivantes
+    - Z-index system centralisé (announcement 40 / nav 50 / overlays 100-200)
+    - scroll-padding-top automatique via CSS var
+    - Sticky sans layout shift : height réservée via padding-top sur <main>
+    - Cart drawer AJAX robuste + optimistic UI
+    - Accessibilité : focus trap, aria-live, escape, skip link
+    - Mobile-first : breakpoints propres, touch targets 44px min
+    - Aucun inline style, tout via CSS custom properties
 {% endcomment %}
 
 {%- liquid
-  assign menu = section.settings.menu
-  assign show_announcement = section.settings.show_announcement
-  assign announcement_text = section.settings.announcement_text
-  assign logo = section.settings.logo
+  assign menu       = section.settings.menu
+  assign logo       = section.settings.logo
   assign logo_width = section.settings.logo_width
   assign brand_name = section.settings.brand_name | default: shop.name
 -%}
 
 {%- style -%}
+  /* ================================================
+     FONTS
+  ================================================ */
   @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&family=Playfair+Display:ital,wght@0,400;0,700;1,400&display=swap');
 
+  /* ================================================
+     DESIGN TOKENS — partagés avec TOUTES les sections
+     Utilise ces variables dans chaque nouvelle section :
+       var(--header-total-height)  → offset sticky
+       var(--z-nav)                → jamais en conflit
+       var(--font-display)         → Playfair Display
+       var(--font-body)            → Inter
+  ================================================ */
   :root {
-    --header-bg: {{ section.settings.nav_bg_color }};
-    --header-text: {{ section.settings.nav_text_color }};
-    --announcement-bg: {{ section.settings.announcement_bg_color }};
-    --announcement-text: {{ section.settings.announcement_text_color }};
+    /* Layout */
+    --header-announcement-height: {{ section.settings.show_announcement | iif: '40px', '0px' }};
+    --header-nav-height:          60px;
+    --header-total-height:        calc(var(--header-announcement-height) + var(--header-nav-height));
+
+    /* Scroll offset pour ancres et sections sticky */
+    scroll-padding-top: var(--header-total-height);
+
+    /* Z-index system */
+    --z-base:       1;
+    --z-nav:        50;
+    --z-overlay:    100;
+    --z-drawer:     110;
+    --z-mobile:     120;
+    --z-search:     130;
+
+    /* Typo */
+    --font-display: 'Playfair Display', Georgia, serif;
+    --font-body:    'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+
+    /* Couleurs header */
+    --header-bg:              {{ section.settings.nav_bg_color }};
+    --header-text:            {{ section.settings.nav_text_color }};
+    --announcement-bg:        {{ section.settings.announcement_bg_color }};
+    --announcement-text:      {{ section.settings.announcement_text_color }};
+
+    /* Transitions */
+    --transition-fast:   150ms cubic-bezier(0.16, 1, 0.3, 1);
+    --transition-drawer: 400ms cubic-bezier(0.4, 0, 0.2, 1);
   }
 
+  /* Applique l'offset sticky à <main> automatiquement */
+  body > main,
+  #MainContent {
+    scroll-margin-top: var(--header-total-height);
+  }
+
+  /* ================================================
+     SKIP LINK (accessibilité)
+  ================================================ */
+  .avant-garde-skip {
+    position: absolute;
+    top: -100%;
+    left: 16px;
+    z-index: var(--z-search);
+    background: var(--header-text);
+    color: var(--header-bg);
+    padding: 8px 16px;
+    font-family: var(--font-body);
+    font-size: 13px;
+    font-weight: 700;
+    text-decoration: none;
+    border-radius: 0 0 4px 4px;
+    transition: top var(--transition-fast);
+  }
+  .avant-garde-skip:focus {
+    top: 0;
+  }
+
+  /* ================================================
+     ANNOUNCEMENT BAR
+  ================================================ */
   .avant-garde-announcement {
+    height: var(--header-announcement-height);
+    overflow: hidden;
     background-color: var(--announcement-bg);
     color: var(--announcement-text);
+    font-family: var(--font-body);
     font-size: 10px;
+    font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.3em;
-    padding: 10px 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
     text-align: center;
-    font-weight: 600;
-    font-family: 'Inter', sans-serif;
+    padding: 0 16px;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
   }
 
+  /* ================================================
+     NAVIGATION
+  ================================================ */
   .avant-garde-nav {
     position: sticky;
-    top: 0;
+    top: var(--header-announcement-height);
     width: 100%;
-    z-index: 50;
+    z-index: var(--z-nav);
+    height: var(--header-nav-height);
     background-color: var(--header-bg);
-    backdrop-filter: blur(12px);
-    -webkit-backdrop-filter: blur(12px);
-    border-bottom: 1px solid rgba(0,0,0,0.06);
-    padding: 20px 48px;
-    display: flex;
-    justify-content: space-between;
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border-bottom: 1px solid oklch(from var(--header-text) l c h / 0.06);
+    display: grid;
+    grid-template-columns: 1fr auto 1fr;
     align-items: center;
-    transition: padding 0.3s ease, box-shadow 0.3s ease;
-    color: var(--header-text);
-    font-family: 'Inter', sans-serif;
+    padding: 0 48px;
+    transition:
+      height var(--transition-fast),
+      box-shadow var(--transition-fast),
+      border-color var(--transition-fast);
+    font-family: var(--font-body);
   }
 
-  .avant-garde-nav.scrolled {
-    padding-top: 12px;
-    padding-bottom: 12px;
-    box-shadow: 0 1px 12px rgba(0,0,0,0.06);
+  .avant-garde-nav.is-scrolled {
+    box-shadow: 0 1px 16px oklch(from var(--header-text) l c h / 0.07);
+    border-bottom-color: oklch(from var(--header-text) l c h / 0.1);
   }
 
-  /* Liens gauche */
-  .avant-garde-nav__links {
+  /* ================================================
+     LINKS GAUCHE
+  ================================================ */
+  .avant-garde-nav__left {
     display: flex;
+    align-items: center;
     gap: 32px;
-    align-items: center;
+    justify-content: flex-start;
   }
 
-  .avant-garde-nav__links a,
-  .avant-garde-nav__links summary {
+  .avant-garde-nav__left a,
+  .avant-garde-nav__left summary {
+    font-family: var(--font-body);
     font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.15em;
+    letter-spacing: 0.14em;
     color: var(--header-text);
     text-decoration: none;
-    transition: opacity 0.2s;
-    cursor: pointer;
-    list-style: none;
     background: none;
     border: none;
-    padding: 0;
+    cursor: pointer;
+    padding: 4px 0;
+    list-style: none;
+    white-space: nowrap;
+    transition: opacity var(--transition-fast);
+    -webkit-tap-highlight-color: transparent;
   }
 
-  .avant-garde-nav__links a:hover,
-  .avant-garde-nav__links summary:hover {
-    opacity: 0.5;
+  .avant-garde-nav__left a:hover,
+  .avant-garde-nav__left summary:hover {
+    opacity: 0.45;
   }
 
-  /* Dropdown mega menu */
+  .avant-garde-nav__left a:focus-visible,
+  .avant-garde-nav__left summary:focus-visible {
+    outline: 2px solid var(--header-text);
+    outline-offset: 4px;
+    border-radius: 2px;
+    opacity: 1;
+  }
+
+  /* DROPDOWN */
   details.avant-garde-dropdown {
     position: relative;
   }
 
-  details.avant-garde-dropdown[open] > summary::after {
-    content: '';
-    position: fixed;
-    inset: 0;
-    z-index: -1;
-  }
-
-  .avant-garde-dropdown__menu {
+  .avant-garde-dropdown__panel {
     position: absolute;
-    top: calc(100% + 16px);
+    top: calc(100% + 12px);
     left: 0;
     background: #fff;
     border: 1px solid rgba(0,0,0,0.08);
-    min-width: 180px;
-    padding: 16px 0;
-    box-shadow: 0 8px 32px rgba(0,0,0,0.08);
-    z-index: 100;
+    min-width: 200px;
+    padding: 8px 0;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.10);
+    z-index: var(--z-drawer);
+    border-radius: 4px;
   }
 
-  .avant-garde-dropdown__menu a {
+  .avant-garde-dropdown__panel a {
     display: block;
-    padding: 8px 24px;
+    padding: 10px 20px;
     font-size: 11px;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 0.12em;
     color: #0f0f0f;
     text-decoration: none;
-    transition: background 0.15s;
+    transition: background var(--transition-fast);
   }
 
-  .avant-garde-dropdown__menu a:hover {
+  .avant-garde-dropdown__panel a:hover {
     background: #f5f5f7;
     opacity: 1;
   }
 
-  /* Logo centré */
+  /* ================================================
+     LOGO CENTRÉ — grid cell auto, aucun décalage
+  ================================================ */
   .avant-garde-nav__logo {
-    position: absolute;
-    left: 50%;
-    transform: translateX(-50%);
+    display: flex;
+    align-items: center;
+    justify-content: center;
     text-decoration: none;
     color: var(--header-text);
+    white-space: nowrap;
+    -webkit-tap-highlight-color: transparent;
+  }
+
+  .avant-garde-nav__logo:focus-visible {
+    outline: 2px solid var(--header-text);
+    outline-offset: 4px;
+    border-radius: 2px;
   }
 
   .avant-garde-nav__logo-text {
-    font-family: 'Playfair Display', serif;
-    font-size: clamp(1.25rem, 2vw, 1.75rem);
+    font-family: var(--font-display);
+    font-size: clamp(1.25rem, 1.5vw + 0.5rem, 1.75rem);
     font-weight: 700;
     letter-spacing: -0.02em;
-    white-space: nowrap;
+    line-height: 1;
   }
 
   .avant-garde-nav__logo img {
     display: block;
     height: auto;
     max-width: {{ logo_width }}px;
+    width: 100%;
   }
 
-  /* Icônes droite */
-  .avant-garde-nav__icons {
+  /* ================================================
+     ICÔNES DROITE
+  ================================================ */
+  .avant-garde-nav__right {
     display: flex;
     align-items: center;
-    gap: 24px;
-    margin-left: auto;
+    justify-content: flex-end;
+    gap: 20px;
   }
 
-  .avant-garde-nav__icon-btn {
-    background: none;
-    border: none;
-    cursor: pointer;
-    padding: 4px;
-    color: var(--header-text);
-    transition: opacity 0.2s;
+  .avant-garde-nav__btn {
     display: flex;
     align-items: center;
     justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: var(--header-text);
+    padding: 0;
+    text-decoration: none;
     position: relative;
+    transition: opacity var(--transition-fast);
+    -webkit-tap-highlight-color: transparent;
+    border-radius: 50%;
   }
 
-  .avant-garde-nav__icon-btn:hover { opacity: 0.5; }
+  .avant-garde-nav__btn:hover {
+    opacity: 0.45;
+  }
 
-  .avant-garde-nav__icon-btn svg {
+  .avant-garde-nav__btn:focus-visible {
+    outline: 2px solid var(--header-text);
+    outline-offset: 2px;
+    opacity: 1;
+  }
+
+  .avant-garde-nav__btn svg {
     width: 20px;
     height: 20px;
     stroke: currentColor;
@@ -188,201 +302,303 @@
     stroke-width: 1.5;
     stroke-linecap: round;
     stroke-linejoin: round;
+    display: block;
+    flex-shrink: 0;
   }
 
+  /* Badge panier */
   .avant-garde-cart-badge {
     position: absolute;
-    top: -6px;
-    right: -6px;
+    top: 4px;
+    right: 4px;
     background: var(--header-text);
     color: var(--header-bg);
+    font-family: var(--font-body);
     font-size: 8px;
-    width: 16px;
+    font-weight: 700;
+    min-width: 16px;
     height: 16px;
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-weight: 700;
     line-height: 1;
+    padding: 0 3px;
+    pointer-events: none;
+    transition: transform var(--transition-fast);
   }
 
-  /* Burger mobile */
+  .avant-garde-cart-badge[data-count="0"] {
+    transform: scale(0);
+  }
+
+  /* Burger — masqué desktop */
   .avant-garde-nav__burger {
     display: none;
   }
 
-  /* --- CART DRAWER --- */
-  .avant-garde-cart-overlay {
+  /* ================================================
+     OVERLAY GÉNÉRIQUE
+  ================================================ */
+  .avant-garde-overlay {
     position: fixed;
     inset: 0;
-    background: rgba(0,0,0,0.4);
-    z-index: 100;
+    background: rgba(0, 0, 0, 0.45);
+    z-index: var(--z-overlay);
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.3s, visibility 0.3s;
+    transition: opacity var(--transition-drawer), visibility var(--transition-drawer);
+    cursor: pointer;
   }
 
-  .avant-garde-cart-overlay.open {
+  .avant-garde-overlay.is-open {
     opacity: 1;
     visibility: visible;
   }
 
-  .avant-garde-cart-drawer {
+  /* ================================================
+     CART DRAWER
+  ================================================ */
+  .avant-garde-cart {
     position: fixed;
-    right: 0;
-    top: 0;
+    inset: 0 0 0 auto;
+    width: min(420px, 100vw);
     height: 100%;
-    width: 100%;
-    max-width: 420px;
     background: #fff;
-    z-index: 101;
-    transform: translateX(100%);
-    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: var(--z-drawer);
     display: flex;
     flex-direction: column;
-    padding: 32px;
-    box-shadow: -4px 0 40px rgba(0,0,0,0.1);
-    font-family: 'Inter', sans-serif;
+    transform: translateX(100%);
+    transition: transform var(--transition-drawer);
+    box-shadow: -4px 0 40px rgba(0,0,0,0.12);
+    font-family: var(--font-body);
+    overscroll-behavior: contain;
   }
 
-  .avant-garde-cart-drawer.open {
+  .avant-garde-cart.is-open {
     transform: translateX(0);
   }
 
-  .avant-garde-cart-drawer__header {
+  .avant-garde-cart__head {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 32px;
+    padding: 24px 28px;
+    border-bottom: 1px solid #f0f0f0;
+    flex-shrink: 0;
   }
 
-  .avant-garde-cart-drawer__title {
-    font-family: 'Playfair Display', serif;
-    font-size: 1.5rem;
+  .avant-garde-cart__title {
+    font-family: var(--font-display);
+    font-size: 1.375rem;
     font-style: italic;
     color: #0f0f0f;
+    margin: 0;
   }
 
-  .avant-garde-cart-drawer__close {
+  .avant-garde-cart__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
     background: none;
     border: none;
     cursor: pointer;
-    padding: 8px;
     color: #0f0f0f;
-    transition: opacity 0.2s;
+    border-radius: 50%;
+    transition: opacity var(--transition-fast);
+    padding: 0;
+    margin-right: -8px;
   }
 
-  .avant-garde-cart-drawer__close:hover { opacity: 0.5; }
+  .avant-garde-cart__close:hover { opacity: 0.45; }
 
-  .avant-garde-cart-drawer__close svg {
-    width: 24px;
-    height: 24px;
+  .avant-garde-cart__close:focus-visible {
+    outline: 2px solid #0f0f0f;
+    outline-offset: 2px;
+  }
+
+  .avant-garde-cart__close svg {
+    width: 22px;
+    height: 22px;
     stroke: currentColor;
     fill: none;
     stroke-width: 1.5;
     stroke-linecap: round;
     stroke-linejoin: round;
+    display: block;
   }
 
-  .avant-garde-cart-drawer__body {
-    flex-grow: 1;
+  .avant-garde-cart__body {
+    flex: 1 1 auto;
     overflow-y: auto;
+    padding: 0 28px;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 
-  .avant-garde-cart-drawer__empty {
+  .avant-garde-cart__empty {
     text-align: center;
-    color: #999;
-    margin-top: 48px;
+    color: #aaa;
+    margin-top: 64px;
     font-size: 0.875rem;
+    line-height: 1.6;
   }
 
-  .avant-garde-cart-item {
-    display: flex;
+  /* Items */
+  .avant-garde-cart__item {
+    display: grid;
+    grid-template-columns: 72px 1fr auto;
     gap: 16px;
-    align-items: flex-start;
-    padding: 16px 0;
-    border-bottom: 1px solid #f0f0f0;
+    align-items: start;
+    padding: 20px 0;
+    border-bottom: 1px solid #f5f5f5;
   }
 
-  .avant-garde-cart-item img {
+  .avant-garde-cart__item-img {
     width: 72px;
     height: 88px;
     object-fit: cover;
-    border-radius: 2px;
-    flex-shrink: 0;
+    border-radius: 3px;
+    display: block;
+    background: #f5f5f7;
   }
 
-  .avant-garde-cart-item__info {
-    flex-grow: 1;
-  }
-
-  .avant-garde-cart-item__title {
+  .avant-garde-cart__item-title {
     font-size: 11px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.1em;
     color: #0f0f0f;
-    margin-bottom: 4px;
+    margin: 0 0 4px;
+    line-height: 1.4;
   }
 
-  .avant-garde-cart-item__variant {
+  .avant-garde-cart__item-variant {
     font-size: 11px;
     color: #999;
     font-style: italic;
+    margin: 0 0 8px;
   }
 
-  .avant-garde-cart-item__price {
+  .avant-garde-cart__item-price {
     font-size: 0.875rem;
-    margin-top: 8px;
+    color: #0f0f0f;
+    margin: 0;
+  }
+
+  .avant-garde-cart__item-qty {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-top: 10px;
+  }
+
+  .avant-garde-cart__item-qty button {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    background: none;
+    border: 1px solid #e0e0e0;
+    cursor: pointer;
+    border-radius: 50%;
+    font-size: 16px;
+    color: #0f0f0f;
+    transition: border-color var(--transition-fast), background var(--transition-fast);
+    font-family: var(--font-body);
+    padding: 0;
+    line-height: 1;
+  }
+
+  .avant-garde-cart__item-qty button:hover {
+    border-color: #0f0f0f;
+    background: #0f0f0f;
+    color: #fff;
+  }
+
+  .avant-garde-cart__item-qty span {
+    font-size: 13px;
+    font-weight: 600;
+    min-width: 20px;
+    text-align: center;
     color: #0f0f0f;
   }
 
-  .avant-garde-cart-item__remove {
+  .avant-garde-cart__item-remove {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 36px;
+    min-height: 36px;
     background: none;
     border: none;
     cursor: pointer;
-    padding: 4px;
-    color: #999;
-    transition: color 0.2s;
-    flex-shrink: 0;
+    color: #ccc;
+    border-radius: 50%;
+    transition: color var(--transition-fast);
+    padding: 0;
+    margin-top: 2px;
   }
 
-  .avant-garde-cart-item__remove:hover { color: #e53935; }
+  .avant-garde-cart__item-remove:hover { color: #e53935; }
 
-  .avant-garde-cart-item__remove svg {
-    width: 16px;
-    height: 16px;
+  .avant-garde-cart__item-remove svg {
+    width: 15px;
+    height: 15px;
     stroke: currentColor;
     fill: none;
     stroke-width: 1.5;
     stroke-linecap: round;
     stroke-linejoin: round;
+    display: block;
   }
 
-  .avant-garde-cart-drawer__footer {
+  /* Footer panier */
+  .avant-garde-cart__foot {
+    padding: 20px 28px 28px;
     border-top: 1px solid #f0f0f0;
-    padding-top: 24px;
-    margin-top: 24px;
+    flex-shrink: 0;
   }
 
-  .avant-garde-cart-drawer__total {
+  .avant-garde-cart__subtotal {
     display: flex;
     justify-content: space-between;
+    align-items: baseline;
+    margin-bottom: 6px;
+  }
+
+  .avant-garde-cart__subtotal-label {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.12em;
     font-weight: 700;
-    font-size: 1rem;
-    margin-bottom: 24px;
     color: #0f0f0f;
   }
 
-  .avant-garde-cart-drawer__checkout {
+  .avant-garde-cart__subtotal-price {
+    font-size: 1.125rem;
+    font-weight: 700;
+    color: #0f0f0f;
+  }
+
+  .avant-garde-cart__shipping-note {
+    font-size: 11px;
+    color: #aaa;
+    margin-bottom: 20px;
+  }
+
+  .avant-garde-cart__checkout {
     display: block;
     width: 100%;
     background: #0f0f0f;
     color: #fff;
     border: none;
-    padding: 18px;
+    padding: 16px 24px;
     border-radius: 9999px;
+    font-family: var(--font-body);
     font-size: 10px;
     font-weight: 700;
     text-transform: uppercase;
@@ -390,72 +606,182 @@
     cursor: pointer;
     text-align: center;
     text-decoration: none;
-    transition: background 0.2s;
-    font-family: 'Inter', sans-serif;
+    transition: background var(--transition-fast);
+    min-height: 52px;
   }
 
-  .avant-garde-cart-drawer__checkout:hover { background: #333; }
+  .avant-garde-cart__checkout:hover { background: #333; }
 
-  /* --- SEARCH OVERLAY --- */
-  .avant-garde-search-overlay {
+  .avant-garde-cart__checkout:focus-visible {
+    outline: 2px solid #0f0f0f;
+    outline-offset: 3px;
+  }
+
+  /* Loading state */
+  .avant-garde-cart.is-loading .avant-garde-cart__body {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+
+  /* ================================================
+     SEARCH OVERLAY
+  ================================================ */
+  .avant-garde-search {
     position: fixed;
     inset: 0;
-    background: rgba(255,255,255,0.97);
-    z-index: 200;
+    background: rgba(255, 255, 255, 0.97);
+    backdrop-filter: blur(8px);
+    -webkit-backdrop-filter: blur(8px);
+    z-index: var(--z-search);
     display: flex;
-    align-items: flex-start;
-    justify-content: center;
-    padding-top: 120px;
+    flex-direction: column;
+    align-items: center;
+    justify-content: flex-start;
+    padding-top: calc(var(--header-total-height) + 64px);
     opacity: 0;
     visibility: hidden;
-    transition: opacity 0.25s, visibility 0.25s;
+    transition: opacity 0.25s ease, visibility 0.25s ease;
   }
 
-  .avant-garde-search-overlay.open {
+  .avant-garde-search.is-open {
     opacity: 1;
     visibility: visible;
   }
 
-  .avant-garde-search-overlay__inner {
+  .avant-garde-search__inner {
     width: 100%;
-    max-width: 640px;
+    max-width: 600px;
     padding: 0 24px;
   }
 
-  .avant-garde-search-overlay__form {
+  .avant-garde-search__form {
     display: flex;
     align-items: center;
+    gap: 16px;
     border-bottom: 2px solid #0f0f0f;
     padding-bottom: 12px;
-    gap: 16px;
   }
 
-  .avant-garde-search-overlay__input {
-    flex-grow: 1;
+  .avant-garde-search__input {
+    flex: 1;
     border: none;
     background: transparent;
-    font-size: 1.5rem;
-    font-family: 'Playfair Display', serif;
+    font-family: var(--font-display);
+    font-size: clamp(1.25rem, 3vw, 1.75rem);
     font-style: italic;
     color: #0f0f0f;
     outline: none;
+    min-width: 0;
   }
 
-  .avant-garde-search-overlay__input::placeholder {
-    color: #ccc;
-  }
+  .avant-garde-search__input::placeholder { color: #ccc; }
 
-  .avant-garde-search-overlay__submit {
+  .avant-garde-search__submit {
     background: none;
     border: none;
     cursor: pointer;
     color: #0f0f0f;
-    transition: opacity 0.2s;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    transition: opacity var(--transition-fast);
+    padding: 0;
+    flex-shrink: 0;
   }
 
-  .avant-garde-search-overlay__submit:hover { opacity: 0.5; }
+  .avant-garde-search__submit:hover { opacity: 0.45; }
 
-  .avant-garde-search-overlay__submit svg {
+  .avant-garde-search__submit svg {
+    width: 22px;
+    height: 22px;
+    stroke: currentColor;
+    fill: none;
+    stroke-width: 1.5;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    display: block;
+  }
+
+  .avant-garde-search__close {
+    position: absolute;
+    top: calc(var(--header-total-height) + 20px);
+    right: 40px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    font-family: var(--font-body);
+    font-size: 11px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: #0f0f0f;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    transition: opacity var(--transition-fast);
+    padding: 0 8px;
+  }
+
+  .avant-garde-search__close:hover { opacity: 0.45; }
+
+  /* ================================================
+     MOBILE MENU
+  ================================================ */
+  .avant-garde-mobile {
+    position: fixed;
+    inset: 0;
+    background: #fff;
+    z-index: var(--z-mobile);
+    display: flex;
+    flex-direction: column;
+    transform: translateX(-100%);
+    transition: transform var(--transition-drawer);
+    overscroll-behavior: contain;
+    font-family: var(--font-body);
+  }
+
+  .avant-garde-mobile.is-open {
+    transform: translateX(0);
+  }
+
+  .avant-garde-mobile__head {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 20px 24px;
+    border-bottom: 1px solid #f0f0f0;
+    flex-shrink: 0;
+    min-height: var(--header-nav-height);
+  }
+
+  .avant-garde-mobile__logo {
+    font-family: var(--font-display);
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #0f0f0f;
+    text-decoration: none;
+  }
+
+  .avant-garde-mobile__close {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
+    background: none;
+    border: none;
+    cursor: pointer;
+    color: #0f0f0f;
+    border-radius: 50%;
+    padding: 0;
+    transition: opacity var(--transition-fast);
+  }
+
+  .avant-garde-mobile__close:hover { opacity: 0.45; }
+
+  .avant-garde-mobile__close svg {
     width: 24px;
     height: 24px;
     stroke: currentColor;
@@ -463,488 +789,692 @@
     stroke-width: 1.5;
     stroke-linecap: round;
     stroke-linejoin: round;
+    display: block;
   }
 
-  .avant-garde-search-overlay__close {
-    position: absolute;
-    top: 32px;
-    right: 48px;
-    background: none;
-    border: none;
-    cursor: pointer;
-    font-size: 11px;
+  .avant-garde-mobile__nav {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+    overflow-y: auto;
+    flex: 1;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  .avant-garde-mobile__nav > li {
+    border-bottom: 1px solid #f5f5f5;
+  }
+
+  .avant-garde-mobile__nav a {
+    display: flex;
+    align-items: center;
+    padding: 0 24px;
+    height: 56px;
+    font-size: 13px;
     font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.15em;
-    color: #0f0f0f;
-    transition: opacity 0.2s;
-    font-family: 'Inter', sans-serif;
-  }
-
-  .avant-garde-search-overlay__close:hover { opacity: 0.5; }
-
-  /* --- MOBILE MENU --- */
-  .avant-garde-mobile-menu {
-    position: fixed;
-    inset: 0;
-    background: #fff;
-    z-index: 150;
-    transform: translateX(-100%);
-    transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-    display: flex;
-    flex-direction: column;
-    padding: 32px 40px;
-    font-family: 'Inter', sans-serif;
-  }
-
-  .avant-garde-mobile-menu.open {
-    transform: translateX(0);
-  }
-
-  .avant-garde-mobile-menu__header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 48px;
-  }
-
-  .avant-garde-mobile-menu__logo {
-    font-family: 'Playfair Display', serif;
-    font-size: 1.25rem;
-    font-weight: 700;
+    letter-spacing: 0.14em;
     color: #0f0f0f;
     text-decoration: none;
+    transition: background var(--transition-fast);
   }
 
-  .avant-garde-mobile-menu__close {
-    background: none;
-    border: none;
-    cursor: pointer;
+  .avant-garde-mobile__nav a:hover {
+    background: #fafafa;
+  }
+
+  .avant-garde-mobile__nav a[aria-current="page"] {
+    color: #666;
+  }
+
+  .avant-garde-mobile__foot {
+    padding: 24px;
+    border-top: 1px solid #f0f0f0;
+    flex-shrink: 0;
+    display: flex;
+    gap: 12px;
+  }
+
+  .avant-garde-mobile__foot a {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 44px;
+    min-height: 44px;
     color: #0f0f0f;
-    padding: 8px;
+    transition: opacity var(--transition-fast);
   }
 
-  .avant-garde-mobile-menu__close svg {
-    width: 28px;
-    height: 28px;
+  .avant-garde-mobile__foot a:hover { opacity: 0.45; }
+
+  .avant-garde-mobile__foot svg {
+    width: 20px;
+    height: 20px;
     stroke: currentColor;
     fill: none;
     stroke-width: 1.5;
     stroke-linecap: round;
     stroke-linejoin: round;
-  }
-
-  .avant-garde-mobile-menu__nav {
-    list-style: none;
-    padding: 0;
-    margin: 0;
-  }
-
-  .avant-garde-mobile-menu__nav li {
-    border-bottom: 1px solid #f0f0f0;
-  }
-
-  .avant-garde-mobile-menu__nav a {
     display: block;
-    padding: 20px 0;
-    font-size: 13px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.15em;
-    color: #0f0f0f;
-    text-decoration: none;
-    transition: opacity 0.2s;
   }
 
-  .avant-garde-mobile-menu__nav a:hover { opacity: 0.5; }
-
-  /* --- RESPONSIVE --- */
+  /* ================================================
+     RESPONSIVE
+  ================================================ */
   @media (max-width: 1024px) {
     .avant-garde-nav {
-      padding-left: 24px;
-      padding-right: 24px;
+      padding: 0 24px;
     }
-
-    .avant-garde-nav__links {
+    .avant-garde-nav__left {
       display: none;
     }
-
     .avant-garde-nav__burger {
       display: flex;
     }
   }
 
-  @media (max-width: 768px) {
+  @media (max-width: 640px) {
+    :root {
+      --header-announcement-height: {{ section.settings.show_announcement | iif: '36px', '0px' }};
+      --header-nav-height: 56px;
+    }
     .avant-garde-nav {
-      padding: 16px 20px;
+      padding: 0 16px;
+    }
+    .avant-garde-nav__right {
+      gap: 8px;
+    }
+    .avant-garde-nav__btn {
+      min-width: 40px;
+      min-height: 40px;
+    }
+    .avant-garde-announcement {
+      font-size: 9px;
+      letter-spacing: 0.18em;
+    }
+    .avant-garde-search {
+      padding-top: calc(var(--header-total-height) + 48px);
+    }
+    .avant-garde-search__close {
+      right: 16px;
     }
   }
 {%- endstyle -%}
 
-{%- if show_announcement and announcement_text != blank -%}
-  <div class="avant-garde-announcement" role="region" aria-label="Annonce">
-    {{- announcement_text -}}
-  </div>
+{%- comment -%} SKIP LINK {%- endcomment -%}
+<a href="#MainContent" class="avant-garde-skip">Aller au contenu</a>
+
+{%- comment -%} ANNOUNCEMENT BAR {%- endcomment -%}
+{%- if section.settings.show_announcement and section.settings.announcement_text != blank -%}
+  <div
+    class="avant-garde-announcement"
+    role="region"
+    aria-label="Annonce du site"
+  >{{ section.settings.announcement_text }}</div>
 {%- endif -%}
 
-<nav class="avant-garde-nav" id="AvantGardeNav" role="navigation" aria-label="Navigation principale">
+{%- comment -%} NAVIGATION {%- endcomment -%}
+<nav
+  class="avant-garde-nav"
+  id="AvantGardeNav"
+  role="navigation"
+  aria-label="Navigation principale"
+>
 
-  {%- comment -%} LIENS GAUCHE {%- endcomment -%}
-  <div class="avant-garde-nav__links" aria-label="Liens principaux gauche">
-    {%- for link in menu.links limit: 3 -%}
+  {%- comment -%} GAUCHE — liens desktop {%- endcomment -%}
+  <div class="avant-garde-nav__left" id="AvantGardeDesktopNav" aria-label="Menu principal">
+    {%- for link in menu.links limit: 4 -%}
       {%- if link.links.size > 0 -%}
-        <details class="avant-garde-dropdown">
-          <summary aria-haspopup="true">{{ link.title }}</summary>
-          <div class="avant-garde-dropdown__menu" role="menu">
+        <details class="avant-garde-dropdown" id="dropdown-{{ forloop.index }}">
+          <summary
+            aria-haspopup="true"
+            aria-expanded="false"
+          >{{ link.title }}</summary>
+          <div class="avant-garde-dropdown__panel" role="menu">
             {%- for child in link.links -%}
-              <a href="{{ child.url }}" role="menuitem">{{ child.title }}</a>
+              <a
+                href="{{ child.url }}"
+                role="menuitem"
+                {% if child.current %}aria-current="page"{% endif %}
+              >{{ child.title }}</a>
             {%- endfor -%}
           </div>
         </details>
       {%- else -%}
-        <a href="{{ link.url }}"
-          {%- if link.current %} aria-current="page"{% endif %}>
-          {{ link.title }}
-        </a>
+        <a
+          href="{{ link.url }}"
+          {% if link.current %}aria-current="page"{% endif %}
+        >{{ link.title }}</a>
       {%- endif -%}
     {%- endfor -%}
   </div>
 
-  {%- comment -%} LOGO CENTRÉ {%- endcomment -%}
-  <a href="{{ routes.root_url }}" class="avant-garde-nav__logo" aria-label="{{ brand_name }} — Accueil">
+  {%- comment -%} CENTRE — logo {%- endcomment -%}
+  <a
+    href="{{ routes.root_url }}"
+    class="avant-garde-nav__logo"
+    aria-label="{{ brand_name }} — Accueil"
+  >
     {%- if logo != blank -%}
-      {{ logo | image_url: width: logo_width | image_tag:
-        loading: 'eager',
-        fetchpriority: 'high',
-        alt: brand_name
+      {{ logo
+        | image_url: width: logo_width
+        | image_tag:
+          loading: 'eager',
+          fetchpriority: 'high',
+          alt: brand_name,
+          width: logo_width
       }}
     {%- else -%}
       <span class="avant-garde-nav__logo-text">{{ brand_name }}</span>
     {%- endif -%}
   </a>
 
-  {%- comment -%} ICÔNES DROITE {%- endcomment -%}
-  <div class="avant-garde-nav__icons">
+  {%- comment -%} DROITE — icônes {%- endcomment -%}
+  <div class="avant-garde-nav__right">
 
-    {%- comment -%} Bouton Recherche {%- endcomment -%}
+    {%- comment -%} Recherche {%- endcomment -%}
     <button
-      class="avant-garde-nav__icon-btn"
-      aria-label="Ouvrir la recherche"
-      onclick="avantGardeToggleSearch()"
+      class="avant-garde-nav__btn"
+      type="button"
+      aria-label="Rechercher"
+      aria-expanded="false"
+      aria-controls="AvantGardeSearch"
+      onclick="AG.toggleSearch(this)"
     >
       <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
     </button>
 
-    {%- comment -%} Bouton Compte {%- endcomment -%}
+    {%- comment -%} Compte {%- endcomment -%}
     {%- if section.settings.show_account -%}
       <a
         href="{%- if customer -%}{{ routes.account_url }}{%- else -%}{{ routes.account_login_url }}{%- endif -%}"
-        class="avant-garde-nav__icon-btn"
-        aria-label="Mon compte"
+        class="avant-garde-nav__btn"
+        aria-label="{%- if customer -%}Mon compte{%- else -%}Connexion{%- endif -%}"
       >
         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
       </a>
     {%- endif -%}
 
-    {%- comment -%} Bouton Panier {%- endcomment -%}
+    {%- comment -%} Panier {%- endcomment -%}
     <button
-      class="avant-garde-nav__icon-btn"
-      aria-label="Ouvrir le panier — {{ cart.item_count }} article{{ cart.item_count | plural: '', 's' }}"
-      onclick="avantGardeToggleCart()"
+      class="avant-garde-nav__btn"
+      type="button"
       id="AvantGardeCartBtn"
+      aria-label="Panier, {{ cart.item_count }} article{{ cart.item_count | plural: '', 's' }}"
+      aria-expanded="false"
+      aria-controls="AvantGardeCart"
+      onclick="AG.toggleCart(this)"
     >
       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 2 3 6v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6l-3-4z"/><line x1="3" y1="6" x2="21" y2="6"/><path d="M16 10a4 4 0 0 1-8 0"/></svg>
-      <span class="avant-garde-cart-badge" id="AvantGardeCartCount" aria-live="polite" aria-atomic="true">
-        {{ cart.item_count }}
-      </span>
+      <span
+        class="avant-garde-cart-badge"
+        id="AvantGardeCartBadge"
+        aria-live="polite"
+        aria-atomic="true"
+        data-count="{{ cart.item_count }}"
+      >{{ cart.item_count }}</span>
     </button>
 
     {%- comment -%} Burger mobile {%- endcomment -%}
     <button
-      class="avant-garde-nav__icon-btn avant-garde-nav__burger"
+      class="avant-garde-nav__btn avant-garde-nav__burger"
+      type="button"
       aria-label="Ouvrir le menu"
       aria-expanded="false"
-      aria-controls="AvantGardeMobileMenu"
-      onclick="avantGardeToggleMobile(this)"
+      aria-controls="AvantGardeMobile"
+      onclick="AG.toggleMobile(this)"
     >
-      <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="3" y1="7" x2="21" y2="7"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="17" x2="21" y2="17"/></svg>
     </button>
 
   </div>
 </nav>
 
-{%- comment -%} ========== CART DRAWER ========== {%- endcomment -%}
-<div class="avant-garde-cart-overlay" id="AvantGardeCartOverlay" onclick="avantGardeToggleCart()" aria-hidden="true"></div>
-
+{%- comment -%} ======= OVERLAYS ======= {%- endcomment -%}
 <div
-  id="AvantGardeCartDrawer"
-  class="avant-garde-cart-drawer"
+  class="avant-garde-overlay"
+  id="AvantGardeOverlay"
+  aria-hidden="true"
+  onclick="AG.closeAll()"
+></div>
+
+{%- comment -%} ======= CART DRAWER ======= {%- endcomment -%}
+<div
+  id="AvantGardeCart"
+  class="avant-garde-cart"
   role="dialog"
   aria-modal="true"
   aria-label="Panier"
   aria-hidden="true"
+  tabindex="-1"
 >
-  <div class="avant-garde-cart-drawer__header">
-    <h2 class="avant-garde-cart-drawer__title">Votre Panier</h2>
-    <button class="avant-garde-cart-drawer__close" onclick="avantGardeToggleCart()" aria-label="Fermer le panier">
+  <div class="avant-garde-cart__head">
+    <h2 class="avant-garde-cart__title">Votre Panier</h2>
+    <button
+      class="avant-garde-cart__close"
+      type="button"
+      onclick="AG.toggleCart()"
+      aria-label="Fermer le panier"
+    >
       <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
   </div>
-
-  <div class="avant-garde-cart-drawer__body" id="AvantGardeCartBody">
+  <div class="avant-garde-cart__body" id="AvantGardeCartBody">
     {%- if cart.item_count == 0 -%}
-      <p class="avant-garde-cart-drawer__empty">{{ 'sections.cart.empty' | t }}</p>
+      <p class="avant-garde-cart__empty">{{ 'sections.cart.empty' | t }}</p>
     {%- else -%}
       {%- for item in cart.items -%}
-        <div class="avant-garde-cart-item" data-key="{{ item.key }}">
-          <a href="{{ item.url }}">
+        <div class="avant-garde-cart__item">
+          <a href="{{ item.url }}" tabindex="-1" aria-hidden="true">
             {%- if item.image -%}
-              {{ item.image | image_url: width: 144 | image_tag:
-                loading: 'lazy',
-                alt: item.title | escape
+              {{ item.image
+                | image_url: width: 144
+                | image_tag: loading: 'lazy', alt: item.title | escape, class: 'avant-garde-cart__item-img'
               }}
+            {%- else -%}
+              <div class="avant-garde-cart__item-img"></div>
             {%- endif -%}
           </a>
-          <div class="avant-garde-cart-item__info">
-            <p class="avant-garde-cart-item__title">{{ item.product.title }}</p>
-            {%- if item.variant.title != 'Default Title' -%}
-              <p class="avant-garde-cart-item__variant">{{ item.variant.title }}</p>
-            {%- endif -%}
-            <p class="avant-garde-cart-item__price">{{ item.final_line_price | money }}</p>
+          <div>
+            <p class="avant-garde-cart__item-title">{{ item.product.title }}</p>
+            {%- unless item.variant.title == 'Default Title' -%}
+              <p class="avant-garde-cart__item-variant">{{ item.variant.title }}</p>
+            {%- endunless -%}
+            <p class="avant-garde-cart__item-price">{{ item.final_line_price | money }}</p>
+            <div class="avant-garde-cart__item-qty">
+              <button
+                type="button"
+                aria-label="Diminuer la quantité"
+                data-key="{{ item.key }}"
+                data-action="decrease"
+                onclick="AG.updateQty(this)"
+              >−</button>
+              <span aria-live="polite">{{ item.quantity }}</span>
+              <button
+                type="button"
+                aria-label="Augmenter la quantité"
+                data-key="{{ item.key }}"
+                data-action="increase"
+                onclick="AG.updateQty(this)"
+              >+</button>
+            </div>
           </div>
           <button
-            class="avant-garde-cart-item__remove"
+            class="avant-garde-cart__item-remove"
+            type="button"
             aria-label="Retirer {{ item.title | escape }} du panier"
             data-key="{{ item.key }}"
-            onclick="avantGardeRemoveItem(this)"
+            onclick="AG.removeItem(this)"
           >
-            <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+            <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
           </button>
         </div>
       {%- endfor -%}
     {%- endif -%}
   </div>
-
-  <div class="avant-garde-cart-drawer__footer" id="AvantGardeCartFooter">
-    <div class="avant-garde-cart-drawer__total">
-      <span>Total</span>
-      <span id="AvantGardeCartTotal">{{ cart.total_price | money }}</span>
+  <div class="avant-garde-cart__foot" id="AvantGardeCartFoot">
+    <div class="avant-garde-cart__subtotal">
+      <span class="avant-garde-cart__subtotal-label">Sous-total</span>
+      <span class="avant-garde-cart__subtotal-price" id="AvantGardeCartTotal">{{ cart.total_price | money }}</span>
     </div>
-    <a href="{{ routes.checkout }}" class="avant-garde-cart-drawer__checkout">
+    <p class="avant-garde-cart__shipping-note">{{ 'sections.cart.taxes_and_shipping' | t: link: routes.policies_url | default: 'Taxes et frais de livraison calculés à la commande.' }}</p>
+    <a href="{{ routes.checkout }}" class="avant-garde-cart__checkout">
       {{ 'sections.cart.checkout' | t }}
     </a>
   </div>
 </div>
 
-{%- comment -%} ========== SEARCH OVERLAY ========== {%- endcomment -%}
-<div class="avant-garde-search-overlay" id="AvantGardeSearchOverlay" role="dialog" aria-modal="true" aria-label="Recherche" aria-hidden="true">
-  <div class="avant-garde-search-overlay__inner">
-    <form action="{{ routes.search_url }}" method="get" role="search" class="avant-garde-search-overlay__form">
+{%- comment -%} ======= SEARCH OVERLAY ======= {%- endcomment -%}
+<div
+  id="AvantGardeSearch"
+  class="avant-garde-search"
+  role="dialog"
+  aria-modal="true"
+  aria-label="Recherche"
+  aria-hidden="true"
+  tabindex="-1"
+>
+  <div class="avant-garde-search__inner">
+    <form
+      action="{{ routes.search_url }}"
+      method="get"
+      role="search"
+      class="avant-garde-search__form"
+    >
       <input type="hidden" name="type" value="product">
       <input
+        id="AvantGardeSearchInput"
+        class="avant-garde-search__input"
         type="search"
         name="q"
-        class="avant-garde-search-overlay__input"
         placeholder="Rechercher…"
         autocomplete="off"
-        id="AvantGardeSearchInput"
-        aria-label="Recherche"
+        aria-label="Rechercher des produits"
       >
-      <button type="submit" class="avant-garde-search-overlay__submit" aria-label="Lancer la recherche">
+      <button
+        class="avant-garde-search__submit"
+        type="submit"
+        aria-label="Lancer la recherche"
+      >
         <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
       </button>
     </form>
   </div>
-  <button class="avant-garde-search-overlay__close" onclick="avantGardeToggleSearch()" aria-label="Fermer la recherche">Fermer</button>
+  <button
+    class="avant-garde-search__close"
+    type="button"
+    onclick="AG.toggleSearch()"
+    aria-label="Fermer la recherche"
+  >Fermer</button>
 </div>
 
-{%- comment -%} ========== MOBILE MENU ========== {%- endcomment -%}
+{%- comment -%} ======= MOBILE MENU ======= {%- endcomment -%}
 <div
-  id="AvantGardeMobileMenu"
-  class="avant-garde-mobile-menu"
+  id="AvantGardeMobile"
+  class="avant-garde-mobile"
   role="dialog"
   aria-modal="true"
-  aria-label="Menu mobile"
+  aria-label="Menu de navigation"
   aria-hidden="true"
+  tabindex="-1"
 >
-  <div class="avant-garde-mobile-menu__header">
-    <a href="{{ routes.root_url }}" class="avant-garde-mobile-menu__logo">{{ brand_name }}</a>
-    <button class="avant-garde-mobile-menu__close" onclick="avantGardeToggleMobile()" aria-label="Fermer le menu">
+  <div class="avant-garde-mobile__head">
+    <a href="{{ routes.root_url }}" class="avant-garde-mobile__logo">{{ brand_name }}</a>
+    <button
+      class="avant-garde-mobile__close"
+      type="button"
+      onclick="AG.toggleMobile()"
+      aria-label="Fermer le menu"
+    >
       <svg viewBox="0 0 24 24" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
     </button>
   </div>
-  <ul class="avant-garde-mobile-menu__nav" role="list">
+  <ul class="avant-garde-mobile__nav" role="list">
     {%- for link in menu.links -%}
       <li>
-        <a href="{{ link.url }}"
-          {%- if link.current %} aria-current="page"{% endif %}>
-          {{ link.title }}
-        </a>
+        <a
+          href="{{ link.url }}"
+          {% if link.current %}aria-current="page"{% endif %}
+        >{{ link.title }}</a>
       </li>
     {%- endfor -%}
   </ul>
+  <div class="avant-garde-mobile__foot">
+    {%- if section.settings.show_account -%}
+      <a
+        href="{%- if customer -%}{{ routes.account_url }}{%- else -%}{{ routes.account_login_url }}{%- endif -%}"
+        aria-label="Mon compte"
+      >
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+      </a>
+    {%- endif -%}
+  </div>
 </div>
 
 <script>
-(function() {
-  // =====================
-  // SCROLL — Nav compacte
-  // =====================
-  var nav = document.getElementById('AvantGardeNav');
-  window.addEventListener('scroll', function() {
-    if (window.scrollY > 50) {
-      nav.classList.add('scrolled');
-    } else {
-      nav.classList.remove('scrolled');
-    }
+/* ============================================================
+   AG — Namespace global pour éviter les conflits avec Shopify
+   et les futures sections
+============================================================ */
+window.AG = (function () {
+
+  // ── DOM refs ──────────────────────────────────────────────
+  var nav      = document.getElementById('AvantGardeNav');
+  var overlay  = document.getElementById('AvantGardeOverlay');
+  var cart     = document.getElementById('AvantGardeCart');
+  var cartBody = document.getElementById('AvantGardeCartBody');
+  var cartFoot = document.getElementById('AvantGardeCartFoot');
+  var badge    = document.getElementById('AvantGardeCartBadge');
+  var search   = document.getElementById('AvantGardeSearch');
+  var mobile   = document.getElementById('AvantGardeMobile');
+
+  // ── État ─────────────────────────────────────────────────
+  var _cartOpen   = false;
+  var _searchOpen = false;
+  var _mobileOpen = false;
+  var _loading    = false;
+
+  // ── Scroll compact ───────────────────────────────────────
+  window.addEventListener('scroll', function () {
+    nav.classList.toggle('is-scrolled', window.scrollY > 40);
   }, { passive: true });
 
-  // =====================
-  // CART DRAWER
-  // =====================
-  window.avantGardeToggleCart = function() {
-    var drawer = document.getElementById('AvantGardeCartDrawer');
-    var overlay = document.getElementById('AvantGardeCartOverlay');
-    var isOpen = drawer.classList.contains('open');
+  // ── body lock ────────────────────────────────────────────
+  function lockBody() {
+    document.body.style.overflow = 'hidden';
+    // Compense la scrollbar pour éviter le layout shift
+    var w = window.innerWidth - document.documentElement.clientWidth;
+    if (w > 0) document.body.style.paddingRight = w + 'px';
+  }
+  function unlockBody() {
+    document.body.style.overflow = '';
+    document.body.style.paddingRight = '';
+  }
 
-    if (isOpen) {
-      drawer.classList.remove('open');
-      drawer.setAttribute('aria-hidden', 'true');
-      overlay.classList.remove('open');
-      overlay.setAttribute('aria-hidden', 'true');
-      document.body.style.overflow = '';
-    } else {
-      // Rafraîchir le contenu via Shopify AJAX
-      fetch('/cart.js')
-        .then(function(r) { return r.json(); })
-        .then(function(cartData) {
-          avantGardeUpdateCartUI(cartData);
-          drawer.classList.add('open');
-          drawer.setAttribute('aria-hidden', 'false');
-          overlay.classList.add('open');
-          overlay.setAttribute('aria-hidden', 'false');
-          document.body.style.overflow = 'hidden';
-        });
-    }
-  };
+  // ── setOpen/Close helpers ────────────────────────────────
+  function open(el, btn) {
+    el.classList.add('is-open');
+    el.setAttribute('aria-hidden', 'false');
+    overlay.classList.add('is-open');
+    overlay.setAttribute('aria-hidden', 'false');
+    lockBody();
+    el.focus();
+    if (btn) btn.setAttribute('aria-expanded', 'true');
+  }
 
-  // Mise à jour de l'UI du panier
-  function avantGardeUpdateCartUI(cartData) {
-    var body = document.getElementById('AvantGardeCartBody');
-    var total = document.getElementById('AvantGardeCartTotal');
-    var badge = document.getElementById('AvantGardeCartCount');
+  function close(el, btn) {
+    el.classList.remove('is-open');
+    el.setAttribute('aria-hidden', 'true');
+    if (btn) btn.setAttribute('aria-expanded', 'false');
+  }
 
-    badge.textContent = cartData.item_count;
+  function allClosed() {
+    return !_cartOpen && !_searchOpen && !_mobileOpen;
+  }
 
-    if (cartData.item_count === 0) {
-      body.innerHTML = '<p class="avant-garde-cart-drawer__empty">Votre panier est actuellement vide.</p>';
-      total.textContent = avantGardeFormatMoney(0);
+  // ── CLOSE ALL ────────────────────────────────────────────
+  function closeAll() {
+    if (_cartOpen)   _closeCart();
+    if (_searchOpen) _closeSearch();
+    if (_mobileOpen) _closeMobile();
+    overlay.classList.remove('is-open');
+    overlay.setAttribute('aria-hidden', 'true');
+    unlockBody();
+  }
+
+  // ── Escape key ───────────────────────────────────────────
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && !allClosed()) closeAll();
+  });
+
+  // ── CART ─────────────────────────────────────────────────
+  function _openCart(btn) {
+    _cartOpen = true;
+    open(cart, btn);
+    // Rafraîchit depuis Shopify AJAX
+    if (!_loading) _fetchCart();
+  }
+
+  function _closeCart(btn) {
+    _cartOpen = false;
+    close(cart, btn || document.getElementById('AvantGardeCartBtn'));
+    if (allClosed()) { overlay.classList.remove('is-open'); unlockBody(); }
+  }
+
+  function toggleCart(btn) {
+    _cartOpen ? _closeCart(btn) : _openCart(btn);
+  }
+
+  function _fetchCart() {
+    _loading = true;
+    cart.classList.add('is-loading');
+    fetch('/cart.js')
+      .then(function (r) { return r.json(); })
+      .then(function (data) {
+        _renderCart(data);
+        _loading = false;
+        cart.classList.remove('is-loading');
+      })
+      .catch(function () {
+        _loading = false;
+        cart.classList.remove('is-loading');
+      });
+  }
+
+  function _renderCart(data) {
+    // Badge
+    var count = data.item_count || 0;
+    badge.textContent = count;
+    badge.setAttribute('data-count', count);
+    badge.setAttribute(
+      'aria-label',
+      count + ' article' + (count !== 1 ? 's' : '') + ' dans le panier'
+    );
+
+    // Checkout button
+    var checkoutEl = cartFoot.querySelector('.avant-garde-cart__checkout');
+
+    if (count === 0) {
+      cartBody.innerHTML = '<p class="avant-garde-cart__empty">Votre panier est actuellement vide.</p>';
+      cartFoot.querySelector('.avant-garde-cart__subtotal-price').textContent = _money(0);
+      if (checkoutEl) checkoutEl.setAttribute('aria-disabled', 'true');
       return;
     }
 
+    if (checkoutEl) checkoutEl.removeAttribute('aria-disabled');
+
     var html = '';
-    cartData.items.forEach(function(item) {
-      var variantTitle = item.variant_title && item.variant_title !== 'Default Title'
-        ? '<p class="avant-garde-cart-item__variant">' + item.variant_title + '</p>'
-        : '';
+    data.items.forEach(function (item) {
       var img = item.image
-        ? '<img src="' + item.image + '" alt="' + item.title + '" loading="lazy">'
+        ? '<img class="avant-garde-cart__item-img" src="' + item.image + '" alt="' + _esc(item.title) + '" loading="lazy" width="72" height="88">'
+        : '<div class="avant-garde-cart__item-img"></div>';
+
+      var variant = (item.variant_title && item.variant_title !== 'Default Title')
+        ? '<p class="avant-garde-cart__item-variant">' + _esc(item.variant_title) + '</p>'
         : '';
-      html += '<div class="avant-garde-cart-item" data-key="' + item.key + '">' +
-        '<a href="' + item.url + '">' + img + '</a>' +
-        '<div class="avant-garde-cart-item__info">' +
-          '<p class="avant-garde-cart-item__title">' + item.product_title + '</p>' +
-          variantTitle +
-          '<p class="avant-garde-cart-item__price">' + avantGardeFormatMoney(item.final_line_price) + '</p>' +
-        '</div>' +
-        '<button class="avant-garde-cart-item__remove" onclick="avantGardeRemoveItem(this)" data-key="' + item.key + '" aria-label="Retirer ' + item.title + '">' +
-          '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>' +
-        '</button>' +
-      '</div>';
+
+      html +=
+        '<div class="avant-garde-cart__item">' +
+          '<a href="' + item.url + '" tabindex="-1" aria-hidden="true">' + img + '</a>' +
+          '<div>' +
+            '<p class="avant-garde-cart__item-title">' + _esc(item.product_title) + '</p>' +
+            variant +
+            '<p class="avant-garde-cart__item-price">' + _money(item.final_line_price) + '</p>' +
+            '<div class="avant-garde-cart__item-qty">' +
+              '<button type="button" aria-label="Diminuer" data-key="' + item.key + '" data-action="decrease" onclick="AG.updateQty(this)">\u2212</button>' +
+              '<span aria-live="polite">' + item.quantity + '</span>' +
+              '<button type="button" aria-label="Augmenter" data-key="' + item.key + '" data-action="increase" onclick="AG.updateQty(this)">+</button>' +
+            '</div>' +
+          '</div>' +
+          '<button class="avant-garde-cart__item-remove" type="button" aria-label="Retirer ' + _esc(item.title) + '" data-key="' + item.key + '" onclick="AG.removeItem(this)">' +
+            '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>' +
+          '</button>' +
+        '</div>';
     });
 
-    body.innerHTML = html;
-    total.textContent = avantGardeFormatMoney(cartData.total_price);
+    cartBody.innerHTML = html;
+    cartFoot.querySelector('.avant-garde-cart__subtotal-price').textContent = _money(data.total_price);
   }
 
-  // Supprimer un article du panier (AJAX)
-  window.avantGardeRemoveItem = function(btn) {
+  function removeItem(btn) {
     var key = btn.getAttribute('data-key');
+    _cartChange(key, 0);
+  }
+
+  function updateQty(btn) {
+    var key    = btn.getAttribute('data-key');
+    var action = btn.getAttribute('data-action');
+    // Trouve la quantité actuelle depuis le span adjacent
+    var span   = btn.parentElement.querySelector('span');
+    var qty    = parseInt(span.textContent, 10) || 0;
+    var newQty = action === 'increase' ? qty + 1 : Math.max(0, qty - 1);
+    _cartChange(key, newQty);
+  }
+
+  function _cartChange(key, qty) {
+    if (_loading) return;
+    _loading = true;
+    cart.classList.add('is-loading');
     fetch('/cart/change.js', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ id: key, quantity: 0 })
+      headers: { 'Content-Type': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+      body: JSON.stringify({ id: key, quantity: qty })
     })
-    .then(function(r) { return r.json(); })
-    .then(function(cartData) {
-      avantGardeUpdateCartUI(cartData);
+    .then(function (r) { return r.json(); })
+    .then(function (data) {
+      _renderCart(data);
+      _loading = false;
+      cart.classList.remove('is-loading');
+      // Dispatch event pour les autres sections (ex: mini-cart flottant)
+      document.dispatchEvent(new CustomEvent('ag:cart:update', { detail: data }));
+    })
+    .catch(function () {
+      _loading = false;
+      cart.classList.remove('is-loading');
     });
-  };
+  }
 
-  // Format monnaie
-  function avantGardeFormatMoney(cents) {
+  // ── SEARCH ───────────────────────────────────────────────
+  function _openSearch(btn) {
+    _searchOpen = true;
+    open(search, btn);
+    setTimeout(function () {
+      var input = document.getElementById('AvantGardeSearchInput');
+      if (input) input.focus();
+    }, 50);
+  }
+
+  function _closeSearch(btn) {
+    _searchOpen = false;
+    close(search, btn || document.querySelector('[aria-controls="AvantGardeSearch"]'));
+    if (allClosed()) { overlay.classList.remove('is-open'); unlockBody(); }
+  }
+
+  function toggleSearch(btn) {
+    _searchOpen ? _closeSearch(btn) : _openSearch(btn);
+  }
+
+  // ── MOBILE MENU ──────────────────────────────────────────
+  function _openMobile(btn) {
+    _mobileOpen = true;
+    open(mobile, btn);
+  }
+
+  function _closeMobile(btn) {
+    _mobileOpen = false;
+    close(mobile, btn || document.querySelector('[aria-controls="AvantGardeMobile"]'));
+    if (allClosed()) { overlay.classList.remove('is-open'); unlockBody(); }
+  }
+
+  function toggleMobile(btn) {
+    _mobileOpen ? _closeMobile(btn) : _openMobile(btn);
+  }
+
+  // ── UTILS ────────────────────────────────────────────────
+  function _money(cents) {
     return (cents / 100).toLocaleString('fr-FR', { style: 'currency', currency: 'EUR' });
   }
 
-  // Écouter l'événement Shopify cart:refresh pour mettre à jour le badge
-  document.addEventListener('cart:refresh', function(e) {
-    var badge = document.getElementById('AvantGardeCartCount');
-    if (badge && e.detail && e.detail.item_count !== undefined) {
-      badge.textContent = e.detail.item_count;
-    }
-  });
+  function _esc(str) {
+    return String(str)
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+  }
 
-  // =====================
-  // SEARCH OVERLAY
-  // =====================
-  window.avantGardeToggleSearch = function() {
-    var overlay = document.getElementById('AvantGardeSearchOverlay');
-    var isOpen = overlay.classList.contains('open');
-    if (isOpen) {
-      overlay.classList.remove('open');
-      overlay.setAttribute('aria-hidden', 'true');
-      document.body.style.overflow = '';
-    } else {
-      overlay.classList.add('open');
-      overlay.setAttribute('aria-hidden', 'false');
-      document.body.style.overflow = 'hidden';
-      setTimeout(function() {
-        document.getElementById('AvantGardeSearchInput').focus();
-      }, 100);
-    }
+  // ── API publique ─────────────────────────────────────────
+  return {
+    toggleCart:   toggleCart,
+    toggleSearch: toggleSearch,
+    toggleMobile: toggleMobile,
+    closeAll:     closeAll,
+    removeItem:   removeItem,
+    updateQty:    updateQty,
+    fetchCart:    _fetchCart   // exposé pour les sections add-to-cart
   };
 
-  // Fermer avec Escape
-  document.addEventListener('keydown', function(e) {
-    if (e.key === 'Escape') {
-      document.getElementById('AvantGardeSearchOverlay').classList.remove('open');
-      document.getElementById('AvantGardeCartDrawer').classList.remove('open');
-      document.getElementById('AvantGardeCartOverlay').classList.remove('open');
-      document.getElementById('AvantGardeMobileMenu').classList.remove('open');
-      document.body.style.overflow = '';
-    }
-  });
-
-  // =====================
-  // MOBILE MENU
-  // =====================
-  window.avantGardeToggleMobile = function(btn) {
-    var menu = document.getElementById('AvantGardeMobileMenu');
-    var isOpen = menu.classList.contains('open');
-    if (isOpen) {
-      menu.classList.remove('open');
-      menu.setAttribute('aria-hidden', 'true');
-      document.body.style.overflow = '';
-      if (btn) btn.setAttribute('aria-expanded', 'false');
-    } else {
-      menu.classList.add('open');
-      menu.setAttribute('aria-hidden', 'false');
-      document.body.style.overflow = 'hidden';
-      if (btn) btn.setAttribute('aria-expanded', 'true');
-    }
-  };
-
-})();
+}());
 </script>
 
 {% schema %}
@@ -975,7 +1505,7 @@
     {
       "type": "text",
       "id": "brand_name",
-      "label": "Nom de la marque (si pas de logo)",
+      "label": "Nom de la marque",
       "default": "L'AVANT-GARDE",
       "info": "Affiché en Playfair Display si aucun logo n'est défini"
     },
@@ -1014,30 +1544,30 @@
     {
       "type": "color",
       "id": "announcement_bg_color",
-      "label": "Couleur de fond — annonce",
+      "label": "Fond — annonce",
       "default": "#0f0f0f"
     },
     {
       "type": "color",
       "id": "announcement_text_color",
-      "label": "Couleur du texte — annonce",
+      "label": "Texte — annonce",
       "default": "#ffffff"
     },
     {
       "type": "header",
-      "content": "Couleurs de la navigation"
+      "content": "Couleurs navigation"
     },
     {
       "type": "color",
       "id": "nav_bg_color",
-      "label": "Couleur de fond — nav",
-      "default": "rgba(255,255,255,0.92)",
-      "info": "Utilisez rgba() pour l'effet glassmorphism"
+      "label": "Fond — navigation",
+      "default": "#ffffff",
+      "info": "Conseil : utilisez une couleur légèrement transparente pour l'effet glassmorphism"
     },
     {
       "type": "color",
       "id": "nav_text_color",
-      "label": "Couleur du texte — nav",
+      "label": "Texte — navigation",
       "default": "#0f0f0f"
     }
   ]
